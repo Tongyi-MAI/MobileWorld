@@ -27,6 +27,20 @@
       "mcp": null
     },
     {
+      "model": "Kimi-K2.5",
+      "organization": "Moonshot AI",
+      "date": "2026-1-31",
+      "link": "https://github.com/MoonshotAI/Kimi-K2.5/blob/master/tech_report.pdf",
+      "category": "End-to-End",
+      "model_type": "End-to-End Model",
+      "max_steps": 50,
+      "runs": 1,
+      "overall": 39.3,
+      "gui_only": 49.6,
+      "user_int": 51.2,
+      "mcp": null
+    },
+    {
       "model": "MAI-UI-235B-A22B",
       "organization": "Alibaba",
       "date": "2025-12-29",
