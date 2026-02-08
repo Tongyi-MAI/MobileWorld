@@ -11,6 +11,7 @@ from pathlib import Path
 from loguru import logger
 
 from mobile_world.agents.base import BaseAgent
+from mobile_world.agents.implementations.autoglm_agent import AutoGLMAgentMCP
 from mobile_world.agents.implementations.gelab_agent import GelabAgent
 from mobile_world.agents.implementations.general_e2e_agent import GeneralE2EAgentMCP
 from mobile_world.agents.implementations.mai_ui_agent import MAIUINaivigationAgent
@@ -36,6 +37,9 @@ AGENT_CONFIGS = {
     },
     "gelab_agent": {
         "class": GelabAgent,
+    },
+    "autoglm": {
+        "class": AutoGLMAgentMCP,
     },
 }
 
