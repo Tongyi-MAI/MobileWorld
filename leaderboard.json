@@ -21,7 +21,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 50.2,
       "gui_only": 63.2,
       "user_int": 61.4,
       "mcp": null
@@ -35,7 +34,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 36.3,
       "gui_only": 52.1,
       "user_int": 29.5,
       "mcp": null
@@ -49,7 +47,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 39.3,
       "gui_only": 49.6,
       "user_int": 51.2,
       "mcp": null
@@ -63,7 +60,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 41.7,
       "gui_only": 39.7,
       "user_int": 51.1,
       "mcp": 37.5
@@ -77,7 +73,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 10.0,
       "gui_only": 17.1,
       "user_int": null,
       "mcp": null
@@ -91,10 +86,9 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 37.3,
       "gui_only": 36.2,
       "user_int": 46.7,
-      "mcp": 30.0
+      "mcp": 30
     },
     {
       "model": "MAI-UI-8B",
@@ -105,10 +99,9 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 24.9,
       "gui_only": 27.5,
       "user_int": 22.2,
-      "mcp": 20.0
+      "mcp": 20
     },
     {
       "model": "GPT-5 + UI-Ins-7B",
@@ -119,8 +112,7 @@
       "model_type": "Agentic Framework",
       "max_steps": 50,
       "runs": 1,
-      "overall": 51.7,
-      "gui_only": 54.0,
+      "gui_only": 54,
       "user_int": 62.2,
       "mcp": 51.6
     },
@@ -133,7 +125,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 36.3,
       "gui_only": 51.3,
       "user_int": 29.5,
       "mcp": null
@@ -147,7 +138,6 @@
       "model_type": "Agentic Framework",
       "max_steps": 50,
       "runs": 1,
-      "overall": 46.3,
       "gui_only": 55.6,
       "user_int": 24.4,
       "mcp": 48.6
@@ -161,10 +151,9 @@
       "model_type": "Agentic Framework",
       "max_steps": 50,
       "runs": 1,
-      "overall": 43.8,
       "gui_only": 47.8,
       "user_int": 37.8,
-      "mcp": 50.0
+      "mcp": 50
     },
     {
       "model": "Claude-4.5-Sonnet",
@@ -175,7 +164,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 35.8,
       "gui_only": 47.8,
       "user_int": 38.6,
       "mcp": null
@@ -189,7 +177,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 20.9,
       "gui_only": 26.3,
       "user_int": 32.4,
       "mcp": null
@@ -203,7 +190,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 10.9,
       "gui_only": 16.1,
       "user_int": 6.7,
       "mcp": null
@@ -217,7 +203,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 10.4,
       "gui_only": 16.4,
       "user_int": null,
       "mcp": null
@@ -231,7 +216,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 9.5,
       "gui_only": 12.8,
       "user_int": 4.4,
       "mcp": 5.4
@@ -245,7 +229,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 9.0,
       "gui_only": 11.9,
       "user_int": 6.7,
       "mcp": 2.7
@@ -259,7 +242,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 5.5,
       "gui_only": 8.5,
       "user_int": null,
       "mcp": null
@@ -273,7 +255,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 5.5,
       "gui_only": 8.5,
       "user_int": null,
       "mcp": null
@@ -287,10 +268,9 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 5.5,
       "gui_only": 9.4,
-      "user_int": 0.0,
-      "mcp": 0.0
+      "user_int": 0,
+      "mcp": 0
     },
     {
       "model": "GUI-Owl-7B",
@@ -301,7 +281,6 @@
       "model_type": "End-to-End Model",
       "max_steps": 50,
       "runs": 1,
-      "overall": 4.5,
       "gui_only": 7.7,
       "user_int": null,
       "mcp": null

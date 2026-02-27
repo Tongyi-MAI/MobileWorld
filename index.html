@@ -175,8 +175,8 @@
         <section id="leaderboard" class="section">
             <h2 class="title is-3 has-text-centered">Leaderboard</h2>
             <div class="content has-text-justified">
-                <p>Success rate (%) on MobileWorld. We report overall SR and breakdown by task category: GUI-Only tasks
-                    (116), agent-user interaction tasks (45), and MCP-augmented tasks (40). <strong>All results are
+                <p>Success rate (%) on MobileWorld. We report overall SR (weighted by task counts) and breakdown by task category: GUI-Only tasks
+                    (117), agent-user interaction tasks (44), and MCP-augmented tasks (40). <strong>All results are
                         evaluated with max steps = 50.</strong> Please <a
                         href="mailto:kongquyu.kqy@alibaba-inc.com"><strong>contact us</strong></a> to submit your
                     results.</p>
@@ -612,14 +612,17 @@
             let leaderboardData = [];
             let filteredData = [];
             let currentSort = { key: 'overall', dir: 'desc' };
+            let taskCounts = { 'GUI-Only': 0, 'User-Int.': 0, 'MCP': 0, 'Total': 0 };
 
             // Load data from JSON
             try {
                 const response = await fetch('leaderboard.json');
                 const data = await response.json();
                 leaderboardData = data.results;
+                taskCounts = data.task_counts || taskCounts;
                 filteredData = [...leaderboardData];
                 updateCheckboxStates();
+                updateTableHeader();
                 renderTable();
             } catch (error) {
                 tbody.innerHTML = '<tr><td colspan="7" class="has-text-centered">Failed to load leaderboard data.</td></tr>';
@@ -707,6 +710,25 @@
                 filterMcp.disabled = checkedCount === 1 && filterMcp.checked;
             }
 
+            // Update table header with task counts
+            function updateTableHeader() {
+                const thOverall = document.getElementById('th-overall');
+                const thGuiOnly = document.getElementById('th-gui-only');
+                const thUserInt = document.getElementById('th-user-int');
+                const thMcp = document.getElementById('th-mcp');
+
+                // Calculate dynamic overall task count based on selected filters
+                let overallCount = 0;
+                if (filterGuiOnly.checked) overallCount += taskCounts['GUI-Only'];
+                if (filterUserInt.checked) overallCount += taskCounts['User-Int.'];
+                if (filterMcp.checked) overallCount += taskCounts['MCP'];
+
+                thOverall.innerHTML = `Overall<br><span class="task-count">(n=${overallCount})</span> <i class="fas fa-sort sort-icon"></i>`;
+                thGuiOnly.innerHTML = `GUI-Only<br><span class="task-count">(n=${taskCounts['GUI-Only']})</span> <i class="fas fa-sort sort-icon"></i>`;
+                thUserInt.innerHTML = `User-Int.<br><span class="task-count">(n=${taskCounts['User-Int.']})</span> <i class="fas fa-sort sort-icon"></i>`;
+                thMcp.innerHTML = `MCP<br><span class="task-count">(n=${taskCounts['MCP']})</span> <i class="fas fa-sort sort-icon"></i>`;
+            }
+
             // Update column visibility in table header
             function updateColumnVisibility() {
                 const checkedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
@@ -718,24 +740,34 @@
                 document.getElementById('th-mcp').style.display = filterMcp.checked ? '' : 'none';
             }
 
-            // Calculate filtered score based on selected task categories
+            // Calculate weighted score based on selected task categories and task counts
+            // Treat null values as 0 SR
             function getFilteredScore(row) {
                 const includeGui = filterGuiOnly.checked;
                 const includeUser = filterUserInt.checked;
                 const includeMcp = filterMcp.checked;
 
-                const scores = [];
-                if (includeGui && row.gui_only !== null) scores.push(row.gui_only);
-                if (includeUser && row.user_int !== null) scores.push(row.user_int);
-                if (includeMcp && row.mcp !== null) scores.push(row.mcp);
+                let weightedSum = 0;
+                let totalWeight = 0;
 
-                if (scores.length === 0) return null;
-                return scores.reduce((a, b) => a + b, 0) / scores.length;
-            }
+                if (includeGui) {
+                    const weight = taskCounts['GUI-Only'];
+                    weightedSum += (row.gui_only ?? 0) * weight;
+                    totalWeight += weight;
+                }
+                if (includeUser) {
+                    const weight = taskCounts['User-Int.'];
+                    weightedSum += (row.user_int ?? 0) * weight;
+                    totalWeight += weight;
+                }
+                if (includeMcp) {
+                    const weight = taskCounts['MCP'];
+                    weightedSum += (row.mcp ?? 0) * weight;
+                    totalWeight += weight;
+                }
 
-            // Check if all category filters are selected
-            function allCategoriesSelected() {
-                return filterGuiOnly.checked && filterUserInt.checked && filterMcp.checked;
+                if (totalWeight === 0) return null;
+                return weightedSum / totalWeight;
             }
 
             function applyFilters() {
@@ -755,6 +787,7 @@
 
                     return modelTypeMatch && hasSelectedData;  // && stepsMatch
                 });
+                updateTableHeader();
                 renderTable();
             }
 
@@ -765,7 +798,6 @@
             }
 
             function renderTable() {
-                const useFilteredScore = !allCategoriesSelected();
                 const checkedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
                 const showOverall = checkedCount > 1;
 
@@ -778,12 +810,12 @@
                     if (currentSort.key === 'date') {
                         aVal = new Date(a.date).getTime();
                         bVal = new Date(b.date).getTime();
-                    } else if (currentSort.key === 'overall' && useFilteredScore) {
-                        // When sorting by overall with filtered categories, use filtered score
+                    } else if (currentSort.key === 'overall') {
+                        // Overall is always computed dynamically
                         aVal = getFilteredScore(a) ?? -1;
                         bVal = getFilteredScore(b) ?? -1;
                     } else {
-                        // Handle numeric score columns: overall, gui_only, user_int, mcp
+                        // Handle numeric score columns: gui_only, user_int, mcp
                         aVal = a[currentSort.key] ?? -1;
                         bVal = b[currentSort.key] ?? -1;
                     }
@@ -811,14 +843,9 @@
                     const categoryClass = row.model_type === 'Agentic Framework' ? 'tag is-info is-light' : 'tag is-link is-light';
                     const categoryLabel = row.model_type === 'Agentic Framework' ? 'Agentic' : 'End-to-End';
 
-                    // Calculate display score for Overall column
-                    let overallDisplay;
-                    if (useFilteredScore) {
-                        const filteredScore = getFilteredScore(row);
-                        overallDisplay = filteredScore !== null ? filteredScore.toFixed(1) : '-';
-                    } else {
-                        overallDisplay = row.overall;
-                    }
+                    // Calculate display score for Overall column (always computed dynamically)
+                    const overallScore = getFilteredScore(row);
+                    const overallDisplay = overallScore !== null ? overallScore.toFixed(1) : '-';
 
                     // Build cells based on which columns are visible
                     const overallCell = showOverall ?
