@@ -13,6 +13,19 @@
   },
   "results": [
     {
+      "model": "Qwen3.5-397B-A17B",
+      "organization": "Alibaba",
+      "date": "2026-02-16",
+      "link": "https://qwen.ai/blog?id=qwen3.5",
+      "category": "End-to-End",
+      "model_type": "End-to-End Model",
+      "max_steps": 50,
+      "runs": 1,
+      "gui_only": 42.7,
+      "user_int": 54.4,
+      "mcp": null
+    },
+    {
       "model": "Seed-2.0-Pro",
       "organization": "ByteDance Seed",
       "date": "2026-02-14",
