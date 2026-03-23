@@ -53,13 +53,12 @@ class AndroidEnvClient:
             response.raise_for_status()
             self._initialized = True
 
-    def switch_suite_family(self, target_family: str) -> dict:
+    def switch_suite_family(self, target_family: str, seed: int = None) -> dict:
         """Switch to a different suite family.
 
-        This will restart the emulator with appropriate AVD and reinitialize task registry.
-
         Args:
-            target_family: Either "mobile_world"
+            target_family: Either "mobile_world" or "android_world"
+            seed: Optional random seed for reproducible AndroidWorld params
 
         Returns:
             dict: Response from the suite family switch endpoint
@@ -70,10 +69,14 @@ class AndroidEnvClient:
         logger.info(f"Switching to suite_family: {target_family}")
 
         try:
+            params = {"target_family": target_family}
+            if seed is not None:
+                params["seed"] = seed
+
             response = requests.post(
                 f"{self.base_url}/suite_family/switch",
-                params={"target_family": target_family},
-                timeout=300,  # Allow time for emulator restart
+                params=params,
+                timeout=300,
             )
             response.raise_for_status()
             result = response.json()
@@ -84,7 +87,6 @@ class AndroidEnvClient:
                     f"Successfully switched to {target_family} "
                     f"(AVD: {result.get('avd_name')}, Device: {result.get('emulator_device_id')})"
                 )
-                # Reset initialization flag since we have a new emulator
                 self._initialized = False
 
             return result
