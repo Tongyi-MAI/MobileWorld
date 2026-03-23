@@ -42,28 +42,43 @@ from mobile_world.runtime.utils.models import (
     TaskCallbackRequest,
     TaskOperationRequest,
 )
+from mobile_world.tasks.aw_registry import AWTaskRegistry
 from mobile_world.tasks.registry import TaskRegistry
 
 SUITE_FAMILY: str = "mobile_world"
 RUNNING_TASK = None
 AVD_MAPPING: dict[str, str] = {
     "mobile_world": "Pixel_8_API_34_x86_64",
+    "android_world": "Pixel_8_API_34_x86_64",
+}
+SNAPSHOT_MAPPING: dict[str, str] = {
+    "mobile_world": "init_state",
+    "android_world": "aw_init_state",
 }
 
 
-def initialize_suite_family(suite_family: str) -> None:
+def initialize_suite_family(suite_family: str, seed: int = None) -> None:
     """Initialize the suite family and task registry.
 
     Args:
-        suite_family: Either "mobile_world"
+        suite_family: Either "mobile_world" or "android_world"
+        seed: Optional random seed for reproducible AndroidWorld params
     """
     global SUITE_FAMILY, task_registry
 
     SUITE_FAMILY = suite_family
     logger.info(f"Initializing suite_family: {suite_family}")
 
-    task_registry = TaskRegistry()
-    logger.info(f"Loaded {len(task_registry.tasks)} mobile_world tasks")
+    if suite_family == "mobile_world":
+        if seed is not None:
+            raise ValueError("--seed is not supported for mobile_world tasks")
+        task_registry = TaskRegistry()
+        logger.info(f"Loaded {len(task_registry.tasks)} mobile_world tasks")
+    elif suite_family == "android_world":
+        task_registry = AWTaskRegistry(seed=seed)
+        logger.info(f"Loaded {len(task_registry.tasks)} android_world tasks")
+    else:
+        raise ValueError(f"Unknown suite_family: {suite_family}")
 
 
 CONTROLLERS: dict[str, AndroidController] = {}
@@ -606,32 +621,30 @@ def get_mall_config():
 
 
 @app.post("/suite_family/switch")
-def switch_suite_family(target_family: str = Query(..., description="Target suite family")):
+def switch_suite_family(
+    target_family: str = Query(..., description="Target suite family"),
+    seed: int = Query(None, description="Random seed for reproducible AndroidWorld params"),
+):
     """Switch to a different suite family.
 
     This will:
-    1. Clear controller registry (clients need to re-initialize)
-    2. Restart emulator with appropriate AVD (calls /app/docker/start_emulator.sh)
+    1. If same AVD: swap snapshots only (no emulator restart)
+    2. If different AVD: restart emulator with appropriate AVD
     3. Reinitialize the task registry
 
-    The emulator restart script handles:
-    - Killing existing emulators
-    - Starting new emulator with target AVD
-    - Waiting for boot completion
-    - Disabling animations
-
     Args:
-        target_family: Either "mobile_world"
+        target_family: Either "mobile_world" or "android_world"
+        seed: Optional random seed (only valid for android_world)
     """
     global CONTROLLERS
 
     logger.info(f"[SUITE_FAMILY_SWITCH] Switching from {SUITE_FAMILY} to {target_family}")
 
     # Validate target family
-    if target_family not in ["mobile_world"]:
+    if target_family not in AVD_MAPPING:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid suite_family: {target_family}. Must be 'mobile_world'",
+            detail=f"Invalid suite_family: {target_family}. Must be one of {list(AVD_MAPPING.keys())}",
         )
 
     is_healthy = all(ctr.check_health() for ctr in CONTROLLERS.values())
@@ -648,16 +661,25 @@ def switch_suite_family(target_family: str = Query(..., description="Target suit
         )
 
     try:
+        current_avd = AVD_MAPPING.get(SUITE_FAMILY)
         target_avd = AVD_MAPPING[target_family]
 
-        logger.info("[SUITE_FAMILY_SWITCH] Clearing controller registry")
-        CONTROLLERS.clear()
-
-        logger.info(f"[SUITE_FAMILY_SWITCH] Restarting emulator with AVD {target_avd}")
-        device_id = restart_emulator_with_avd(target_avd)
+        if current_avd == target_avd and CONTROLLERS:
+            # Same AVD — just swap snapshots, no emulator restart
+            logger.info("[SUITE_FAMILY_SWITCH] Same AVD, swapping snapshot only")
+            target_snapshot = SNAPSHOT_MAPPING[target_family]
+            for device_id, controller in CONTROLLERS.items():
+                controller.load_snapshot(target_snapshot)
+            device_id = list(CONTROLLERS.keys())[0] if CONTROLLERS else None
+        else:
+            # Different AVD — full restart
+            logger.info("[SUITE_FAMILY_SWITCH] Clearing controller registry")
+            CONTROLLERS.clear()
+            logger.info(f"[SUITE_FAMILY_SWITCH] Restarting emulator with AVD {target_avd}")
+            device_id = restart_emulator_with_avd(target_avd)
 
         logger.info(f"[SUITE_FAMILY_SWITCH] Reinitializing task registry for {target_family}")
-        initialize_suite_family(target_family)
+        initialize_suite_family(target_family, seed=seed)
 
         response = {
             "message": f"Successfully switched to {target_family}",
@@ -665,11 +687,7 @@ def switch_suite_family(target_family: str = Query(..., description="Target suit
             "switched": True,
             "emulator_device_id": device_id,
             "avd_name": target_avd,
-            "num_tasks": (
-                len(task_registry.tasks)
-                if hasattr(task_registry, "tasks")
-                else len(task_registry.list_tasks())
-            ),
+            "num_tasks": len(task_registry.tasks),
         }
 
         logger.info(f"[SUITE_FAMILY_SWITCH] Success: {response}")
