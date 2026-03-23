@@ -7,3 +7,6 @@
 [submodule "resources/mastodon-android"]
 	path = resources/mastodon-android
 	url = https://github.com/patdooog/mastodon-android.git
+[submodule "resources/android_world"]
+	path = resources/android_world
+	url = https://github.com/google-research/android_world.git
