@@ -220,14 +220,15 @@ def _process_task_on_env(
 
 
 def _init_env(
-    env_url: str, device: str, step_wait_time: float, suite_family: str, enable_mcp: bool
+    env_url: str, device: str, step_wait_time: float, suite_family: str, enable_mcp: bool,
+    seed: int = None,
 ) -> AndroidEnvClient:
     """Initialize the environment."""
     if enable_mcp:
         env = AndroidMCPEnvClient(env_url, device, step_wait_time=step_wait_time)
     else:
         env = AndroidEnvClient(env_url, device, step_wait_time=step_wait_time)
-    env.switch_suite_family(suite_family)
+    env.switch_suite_family(suite_family, seed=seed)
     return env
 
 
@@ -243,6 +244,7 @@ def run_agent_with_evaluation(
     device: str = "emulator-5554",
     step_wait_time: float = 1.0,
     suite_family: str = "mobile_world",
+    seed: int = None,
     env_name_prefix: str = "mobile_world_env",
     env_image: str = "mobile_world",
     dry_run: bool = False,
@@ -287,7 +289,7 @@ def run_agent_with_evaluation(
         n_jobs=min(max_concurrency if max_concurrency is not None else len(aw_urls), len(aw_urls)),
         backend="threading",
     )(
-        delayed(_init_env)(env_url, device, step_wait_time, suite_family, enable_mcp)
+        delayed(_init_env)(env_url, device, step_wait_time, suite_family, enable_mcp, seed=seed)
         for env_url in aw_urls
     )
 

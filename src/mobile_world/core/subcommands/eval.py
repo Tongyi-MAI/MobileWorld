@@ -98,7 +98,7 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "--suite-family",
         "--suite_family",
         dest="suite_family",
-        choices=["mobile_world"],
+        choices=["mobile_world", "android_world"],
         default="mobile_world",
         help="Suite family to use (default: mobile_world)",
     )
@@ -189,11 +189,22 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Shuffle the order of tasks before running",
     )
+    eval_parser.add_argument(
+        "--seed",
+        dest="seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducible AndroidWorld task params (only valid with --suite-family android_world)",
+    )
 
 
 async def execute(args: argparse.Namespace) -> None:
     """Execute the eval command."""
     log_file_root = args.log_file_root or args.output or "./traj_logs"
+
+    # Validate --seed usage
+    if getattr(args, "seed", None) is not None and args.suite_family != "android_world":
+        raise ValueError("--seed is only supported with --suite-family android_world")
 
     # Check if running all tasks
     run_all_tasks = args.task and args.task.upper() == "ALL"
@@ -223,6 +234,7 @@ async def execute(args: argparse.Namespace) -> None:
         device=args.device or "emulator-5554",
         step_wait_time=args.step_wait_time or 1.0,
         suite_family=args.suite_family or "mobile_world",
+        seed=getattr(args, "seed", None),
         env_name_prefix=args.env_name_prefix,
         env_image=args.env_image,
         dry_run=args.dry_run,
