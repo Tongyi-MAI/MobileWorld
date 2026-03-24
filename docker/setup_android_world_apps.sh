@@ -34,26 +34,37 @@ echo "Loading init_state snapshot as base..."
 adb emu avd snapshot load init_state
 sleep 5
 
-# Run AndroidWorld app installation
+# Run AndroidWorld app installation using our adapter
 echo "Installing AndroidWorld apps..."
 cd /app/service
-python -c "
-import sys
-sys.path.insert(0, 'resources/android_world')
+.venv/bin/python -c "
+from mobile_world.runtime.controller import AndroidController
+from mobile_world.runtime.aw_env_adapter import EnvAdapter
 
-from android_world.env.setup_device import apps
+# Create the adapter stack that AW setup code expects:
+# setup_apps(env) where env.controller is our ControllerAdapter
+controller = AndroidController(device='emulator-5554')
+env = EnvAdapter(controller)
+
+from android_world.env.setup_device import setup
 
 print('Starting app installation...')
-# This calls AndroidWorld's setup which downloads and installs APKs
+print('This may take 10-30 minutes depending on network speed.')
+print('')
+
 try:
-    apps.setup_apps()
+    setup.setup_apps(env)
+    print('')
     print('App installation complete.')
 except Exception as e:
     print(f'Warning: Some apps may have failed to install: {e}')
+    import traceback
+    traceback.print_exc()
     print('Continuing with snapshot...')
 "
 
 # Save the snapshot
+echo ""
 echo "Saving aw_init_state snapshot..."
 adb emu avd snapshot save aw_init_state
 sleep 3

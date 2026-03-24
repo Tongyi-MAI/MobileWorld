@@ -31,6 +31,9 @@ class ControllerAdapter:
 
     def __init__(self, mw_controller: AndroidController):
         self._controller = mw_controller
+        # Some AW code accesses env.controller.env for the raw env interface.
+        # Since ControllerAdapter itself implements execute_adb_call, point back to self.
+        self.env = self
 
     def _run_adb(self, cmd: str) -> "AdbResponse":
         """Run an ADB command with the device serial."""
@@ -156,6 +159,17 @@ class ControllerAdapter:
         # --- Fallback: try to handle as generic ---
         logger.warning(f"Unsupported AdbRequest type, attempting generic handling: {request}")
         return self._error_response("unsupported request type")
+
+    def get_ui_elements(self) -> list:
+        """Get UI elements via UIAutomator XML dump.
+
+        Used by AW's actuation code (click_element, find_and_click_element)
+        during app onboarding and some task evaluations.
+        """
+        from android_world.env import adb_utils as aw_adb_utils
+        from android_world.env import representation_utils
+        xml_content = aw_adb_utils.uiautomator_dump(self)
+        return representation_utils.xml_dump_to_ui_elements(xml_content)
 
     @contextlib.contextmanager
     def pull_file(self, remote_path: str, local_path: str = None, timeout_sec: float = None):
