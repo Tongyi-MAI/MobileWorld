@@ -32,47 +32,130 @@ class ControllerAdapter:
     def __init__(self, mw_controller: AndroidController):
         self._controller = mw_controller
 
+    def _run_adb(self, cmd: str) -> "AdbResponse":
+        """Run an ADB command with the device serial."""
+        return execute_adb(f"adb -s {self._controller.device} {cmd}")
+
+    def _ok_response(self, output: str = "") -> "adb_pb2.AdbResponse":
+        from android_env.proto import adb_pb2
+        response = adb_pb2.AdbResponse()
+        response.status = adb_pb2.AdbResponse.Status.OK
+        response.generic.output = output.encode("utf-8", errors="replace")
+        return response
+
+    def _error_response(self, output: str = "") -> "adb_pb2.AdbResponse":
+        from android_env.proto import adb_pb2
+        response = adb_pb2.AdbResponse()
+        response.status = adb_pb2.AdbResponse.Status.ADB_ERROR
+        response.generic.output = output.encode("utf-8", errors="replace")
+        return response
+
     def execute_adb_call(self, request) -> "adb_pb2.AdbResponse":
         """Execute an ADB call from a protobuf AdbRequest.
 
-        Handles GenericRequest (most common), InstallApk, and other request types.
+        Translates protobuf-typed requests (get_current_activity, tap,
+        press_button, input_text, start_activity, settings, etc.) into
+        raw ADB shell commands via MobileWorld's controller.
         """
         from android_env.proto import adb_pb2
 
-        device = self._controller.device
-
+        # --- Generic shell command ---
         if request.HasField("generic"):
             args = list(request.generic.args)
             cmd = " ".join(args)
-            full_cmd = f"adb -s {device} {cmd}"
-            result = execute_adb(full_cmd)
-
-            response = adb_pb2.AdbResponse()
+            result = self._run_adb(cmd)
             if result.success:
+                return self._ok_response(result.output)
+            return self._error_response(result.error or "")
+
+        # --- Get current activity ---
+        if request.HasField("get_current_activity"):
+            result = self._run_adb(
+                "shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'"
+            )
+            response = adb_pb2.AdbResponse()
+            if result.success and result.output:
+                # Parse activity from "mCurrentFocus=Window{... com.pkg/.Activity}"
+                import re
+                match = re.search(r'(\S+/\S+)\}', result.output)
+                activity = match.group(1) if match else result.output.strip()
                 response.status = adb_pb2.AdbResponse.Status.OK
-                response.generic.output = result.output.encode("utf-8", errors="replace")
+                response.get_current_activity.full_activity = activity
             else:
                 response.status = adb_pb2.AdbResponse.Status.ADB_ERROR
-                response.generic.output = (result.error or "").encode("utf-8", errors="replace")
             return response
 
-        elif request.HasField("install_apk"):
+        # --- Tap screen ---
+        if request.HasField("tap"):
+            x, y = request.tap.x, request.tap.y
+            result = self._run_adb(f"shell input tap {x} {y}")
+            return self._ok_response() if result.success else self._error_response()
+
+        # --- Press button (home, back, enter) ---
+        if request.HasField("press_button"):
+            button = request.press_button.button
+            button_map = {
+                adb_pb2.AdbRequest.PressButton.HOME: "KEYCODE_HOME",
+                adb_pb2.AdbRequest.PressButton.BACK: "KEYCODE_BACK",
+                adb_pb2.AdbRequest.PressButton.ENTER: "KEYCODE_ENTER",
+            }
+            keycode = button_map.get(button, f"KEYCODE_{button}")
+            result = self._run_adb(f"shell input keyevent {keycode}")
+            return self._ok_response() if result.success else self._error_response()
+
+        # --- Input text ---
+        if request.HasField("input_text"):
+            text = request.input_text.text
+            self._controller.text(text)
+            return self._ok_response()
+
+        # --- Start activity ---
+        if request.HasField("start_activity"):
+            activity = request.start_activity.full_activity
+            extra_args = list(request.start_activity.extra_args) if request.start_activity.extra_args else []
+            cmd = f"shell am start -n {activity}"
+            if extra_args:
+                cmd += " " + " ".join(extra_args)
+            result = self._run_adb(cmd)
+            return self._ok_response(result.output) if result.success else self._error_response(result.error or "")
+
+        # --- Settings (put/get) ---
+        if request.HasField("settings"):
+            sr = request.settings
+            ns_map = {0: "system", 1: "secure", 2: "global"}
+            namespace = ns_map.get(sr.name_space, "system")
+
+            if sr.HasField("put"):
+                result = self._run_adb(
+                    f"shell settings put {namespace} {sr.put.key} {sr.put.value}"
+                )
+                return self._ok_response() if result.success else self._error_response()
+            elif sr.HasField("get"):
+                result = self._run_adb(
+                    f"shell settings get {namespace} {sr.get.key}"
+                )
+                response = adb_pb2.AdbResponse()
+                if result.success:
+                    response.status = adb_pb2.AdbResponse.Status.OK
+                    response.settings.value = result.output.strip()
+                else:
+                    response.status = adb_pb2.AdbResponse.Status.ADB_ERROR
+                return response
+
+        # --- Package manager (list packages) ---
+        if request.HasField("package_manager"):
+            result = self._run_adb("shell pm list packages")
+            return self._ok_response(result.output) if result.success else self._error_response()
+
+        # --- Install APK ---
+        if request.HasField("install_apk"):
             local_path = request.install_apk.filesystem.path
-            full_cmd = f"adb -s {device} install -r {local_path}"
-            result = execute_adb(full_cmd)
+            result = self._run_adb(f"install -r {local_path}")
+            return self._ok_response() if result.success else self._error_response()
 
-            response = adb_pb2.AdbResponse()
-            response.status = (
-                adb_pb2.AdbResponse.Status.OK if result.success
-                else adb_pb2.AdbResponse.Status.ADB_ERROR
-            )
-            return response
-
-        else:
-            logger.warning(f"Unsupported AdbRequest type: {request}")
-            response = adb_pb2.AdbResponse()
-            response.status = adb_pb2.AdbResponse.Status.INTERNAL_ERROR
-            return response
+        # --- Fallback: try to handle as generic ---
+        logger.warning(f"Unsupported AdbRequest type, attempting generic handling: {request}")
+        return self._error_response("unsupported request type")
 
     @contextlib.contextmanager
     def pull_file(self, remote_path: str, local_path: str = None, timeout_sec: float = None):
