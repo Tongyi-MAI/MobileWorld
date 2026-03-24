@@ -13,12 +13,17 @@ if _aw_path.exists() and str(_aw_path) not in sys.path:
     sys.path.insert(0, str(_aw_path))
 
 try:
-    from android_world.registry import ANDROID_TASK_REGISTRY
+    from android_world.registry import TaskRegistry as AWNativeRegistry
+    _aw_native_registry = AWNativeRegistry()
+    ANDROID_TASK_REGISTRY = _aw_native_registry.ANDROID_TASK_REGISTRY
 except ImportError:
     logger.warning(
         "android_world package not found. AndroidWorld tasks will not be available. "
         "Ensure the submodule is initialized: git submodule update --init"
     )
+    ANDROID_TASK_REGISTRY = {}
+except Exception as e:
+    logger.warning(f"Failed to load android_world registry: {e}")
     ANDROID_TASK_REGISTRY = {}
 
 

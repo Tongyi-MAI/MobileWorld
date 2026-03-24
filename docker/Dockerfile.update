@@ -14,9 +14,10 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Copy AndroidWorld submodule
 COPY resources/android_world/ /app/service/resources/android_world/
 
-# Install AndroidWorld as editable package (no heavy deps like android_env)
-RUN cd /app/service/resources/android_world && pip install -e . --no-deps || \
-    echo "Warning: pip install failed, AndroidWorld task code may still work via sys.path"
+# Install AndroidWorld as editable package into the service venv
+RUN uv pip install setuptools --python /app/service/.venv/bin/python && \
+    cd /app/service/resources/android_world && \
+    uv pip install -e . --no-deps --no-build-isolation --python /app/service/.venv/bin/python
 
 # Copy setup script for AndroidWorld app installation
 COPY docker/setup_android_world_apps.sh /app/docker/setup_android_world_apps.sh

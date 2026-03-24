@@ -1,5 +1,6 @@
 """Adapter wrapping MobileWorld's AndroidController as an AndroidWorld-compatible env."""
 
+import contextlib
 import re
 import tempfile
 import shutil
@@ -20,6 +21,78 @@ class State:
     forest: object = None
 
 
+class ControllerAdapter:
+    """Wraps MobileWorld's AndroidController as AndroidWorld's controller interface.
+
+    AndroidWorld adb_utils functions call env.controller.execute_adb_call(request)
+    with protobuf AdbRequest objects. This adapter translates those to raw ADB commands.
+    It also provides pull_file/push_file as context managers (AW pattern).
+    """
+
+    def __init__(self, mw_controller: AndroidController):
+        self._controller = mw_controller
+
+    def execute_adb_call(self, request) -> "adb_pb2.AdbResponse":
+        """Execute an ADB call from a protobuf AdbRequest.
+
+        Handles GenericRequest (most common), InstallApk, and other request types.
+        """
+        from android_env.proto import adb_pb2
+
+        device = self._controller.device
+
+        if request.HasField("generic"):
+            args = list(request.generic.args)
+            cmd = " ".join(args)
+            full_cmd = f"adb -s {device} {cmd}"
+            result = execute_adb(full_cmd)
+
+            response = adb_pb2.AdbResponse()
+            if result.success:
+                response.status = adb_pb2.AdbResponse.Status.OK
+                response.generic.output = result.output.encode("utf-8", errors="replace")
+            else:
+                response.status = adb_pb2.AdbResponse.Status.ADB_ERROR
+                response.generic.output = (result.error or "").encode("utf-8", errors="replace")
+            return response
+
+        elif request.HasField("install_apk"):
+            local_path = request.install_apk.filesystem.path
+            full_cmd = f"adb -s {device} install -r {local_path}"
+            result = execute_adb(full_cmd)
+
+            response = adb_pb2.AdbResponse()
+            response.status = (
+                adb_pb2.AdbResponse.Status.OK if result.success
+                else adb_pb2.AdbResponse.Status.ADB_ERROR
+            )
+            return response
+
+        else:
+            logger.warning(f"Unsupported AdbRequest type: {request}")
+            response = adb_pb2.AdbResponse()
+            response.status = adb_pb2.AdbResponse.Status.INTERNAL_ERROR
+            return response
+
+    @contextlib.contextmanager
+    def pull_file(self, remote_path: str, local_path: str = None, timeout_sec: float = None):
+        """Pull a file from device, yielding the local path as context manager."""
+        if local_path is None:
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=Path(remote_path).suffix)
+            local_path = tmp.name
+            tmp.close()
+
+        self._controller.pull_file(remote_path, local_path)
+        try:
+            yield local_path
+        finally:
+            pass  # caller manages cleanup
+
+    def push_file(self, local_path: str, remote_path: str, timeout_sec: float = None):
+        """Push a file to device."""
+        self._controller.push_file(local_path, remote_path)
+
+
 class EnvAdapter:
     """Wraps MobileWorld's AndroidController to expose AndroidWorld's env interface.
 
@@ -32,6 +105,7 @@ class EnvAdapter:
         self._controller = controller
         self._temp_dir = tempfile.mkdtemp(prefix="aw_env_")
         self._xml_counter = 0
+        self.controller = ControllerAdapter(controller)
 
     def execute_adb(self, command: str) -> str:
         """Execute an ADB command on the device.
