@@ -217,9 +217,18 @@ def setup_settings():
 
 
 def setup_markor():
-    """Markor: click through 4 NEXT, DONE, file permission."""
+    """Markor: click through 4 NEXT, DONE, file permission, create default folder."""
     pkg = "net.gsantner.markor"
     clear_app_data(pkg)
+
+    # Ensure the Markor notebook directory exists before first launch.
+    # AW evaluator checks files at /storage/emulated/0/Documents/Markor/.
+    markor_dir = "/storage/emulated/0/Documents/Markor"
+    mkdir(markor_dir)
+    # Create default files so Markor recognizes the folder
+    adb_shell("sh", "-c", f"echo '' > {markor_dir}/QuickNote.md")
+    adb_shell("sh", "-c", f"echo '' > {markor_dir}/todo.txt")
+
     launch_activity(
         "net.gsantner.markor/net.gsantner.markor.activity.MainActivity"
     )

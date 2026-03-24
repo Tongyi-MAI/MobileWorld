@@ -20,6 +20,9 @@ if [ "${ENABLE_VNC:-false}" = "true" ] || [ "${ENABLE_VNC:-false}" = "1" ]; then
 else
     uv run mobile-world viewer --port 7860 &
 fi
+# Clean stale emulator lock files (left over from docker commit of running containers)
+find /root/.android/avd/ -name '*.lock' -type f -delete 2>/dev/null
+
 /app/docker/start_emulator.sh
 
 # Start ADB relay in background to expose ADB on 0.0.0.0:5556
