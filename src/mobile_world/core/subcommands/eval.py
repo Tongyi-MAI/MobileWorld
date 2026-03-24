@@ -264,6 +264,8 @@ async def execute(args: argparse.Namespace) -> None:
             "metadata": {
                 "agent_type": args.agent_type,
                 "model_name": args.model_name,
+                "suite_family": args.suite_family,
+                "seed": getattr(args, "seed", None),
                 "timestamp": datetime.now().isoformat(),
                 "log_file_root": log_file_root,
             },

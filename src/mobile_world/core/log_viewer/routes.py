@@ -30,6 +30,7 @@ from mobile_world.core.log_viewer.utils import (
     get_user_trajectory_task_folder,
     is_user_trajectory_log,
     is_valid_trajectory_dir,
+    read_log_metadata,
 )
 
 
@@ -256,7 +257,7 @@ def register_routes(rt, base_path: str = "/"):
         )
 
     def _process_tasks_for_display(
-        log_root, status_filter, score_filter, tag_filter, search_query=""
+        log_root, status_filter, score_filter, tag_filter, search_query="", suite_family="mobile_world"
     ):
         task_folders = get_task_folders(log_root)
         task_rows = []
@@ -278,7 +279,7 @@ def register_routes(rt, base_path: str = "/"):
                 continue
 
             status, score, reason = get_task_status(task_folder)
-            task_tags = get_task_tags(task_name)
+            task_tags = get_task_tags(task_name, suite_family=suite_family)
 
             # Filtering
             if status_filter != "all":
@@ -885,6 +886,10 @@ def register_routes(rt, base_path: str = "/"):
                 Div("Log root not specified", cls="empty-state"),
             )
 
+        # Read suite family metadata
+        metadata = read_log_metadata(log_root)
+        suite_family = metadata.get("suite_family", "mobile_world")
+
         task_info = get_task_info(log_root, task_name)
         if not task_info:
             return (
@@ -1079,6 +1084,11 @@ def register_routes(rt, base_path: str = "/"):
                     ),
                     H1(f"Task: {task_name}"),
                     Div(
+                        Div(
+                            Span("Suite", cls="meta-label"),
+                            Span(suite_family.replace("_", " ").title(), cls="meta-value"),
+                            cls="meta-item",
+                        ),
                         Div(
                             Span("Status", cls="meta-label"),
                             _status_badge(task_info["status"]),
@@ -1381,6 +1391,10 @@ def register_routes(rt, base_path: str = "/"):
 
         search_query = request.query_params.get("search_query", "")
 
+        # Read suite family metadata
+        metadata = read_log_metadata(log_root) if log_root else {}
+        suite_family = metadata.get("suite_family", "mobile_world")
+
         # Pagination
         try:
             current_page = max(1, int(request.query_params.get("page", "1")))
@@ -1513,13 +1527,14 @@ def register_routes(rt, base_path: str = "/"):
         else:
             is_auto_refresh = True
 
-        all_tags = get_all_tags()
+        all_tags = get_all_tags(suite_family=suite_family)
 
         # Get Stats
         stats = (
-            calculate_task_stats(log_root)
+            calculate_task_stats(log_root, suite_family=suite_family)
             if log_root
             else {
+                "total_task_no": 0,
                 "total": 0,
                 "finished": 0,
                 "running": 0,
@@ -1539,6 +1554,8 @@ def register_routes(rt, base_path: str = "/"):
                 "standard_finished": 0,
                 "standard_success_rate": 0.0,
                 "uiq": 0.0,
+                "avg_queries": 0.0,
+                "avg_mcp_calls": 0.0,
             }
         )
 
@@ -1550,7 +1567,7 @@ def register_routes(rt, base_path: str = "/"):
 
         if log_root:
             task_rows, filtered_count, total_count = _process_tasks_for_display(
-                log_root, status_filter, score_filter, tag_filter, search_query
+                log_root, status_filter, score_filter, tag_filter, search_query, suite_family=suite_family
             )
             # Pagination
             total_pages = max(1, (filtered_count + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
@@ -1559,6 +1576,9 @@ def register_routes(rt, base_path: str = "/"):
             end_idx = start_idx + ITEMS_PER_PAGE
             task_rows = task_rows[start_idx:end_idx]
 
+        suite_label = suite_family.replace("_", " ").title() if log_root else ""
+        suite_badge_cls = {"mobile_world": "badge finished", "android_world": "badge running", "user_task": "badge stale"}.get(suite_family, "badge neutral")
+
         return (
             Title("📱 MobileWorld Log Viewer"),
             Style(DARK_THEME_CSS),
@@ -1566,7 +1586,15 @@ def register_routes(rt, base_path: str = "/"):
                 # Header
                 Div(
                     Div(
-                        H1("📱 MobileWorld Log Viewer"),
+                        Div(
+                            H1("📱 MobileWorld Log Viewer"),
+                            Span(
+                                suite_label,
+                                cls=suite_badge_cls,
+                                style="margin-left: 12px; font-size: 14px; vertical-align: middle;",
+                            ) if suite_label else None,
+                            style="display: flex; align-items: center;",
+                        ),
                         Div(
                             f"Last Updated: {current_time}",
                             cls="last-update",
@@ -1831,6 +1859,10 @@ def register_routes(rt, base_path: str = "/"):
         if not log_root:
             return Div("No log root specified", cls="empty-state", id="refreshable-content")
 
+        # Read suite family metadata
+        metadata = read_log_metadata(log_root)
+        suite_family = metadata.get("suite_family", "mobile_world")
+
         status_filter = request.query_params.get("status_filter", "all")
         score_filter = request.query_params.get("score_filter", "all")
         tag_filter = request.query_params.get("tag_filter", "all")
@@ -1843,9 +1875,9 @@ def register_routes(rt, base_path: str = "/"):
         except ValueError:
             current_page = 1
 
-        stats = calculate_task_stats(log_root)
+        stats = calculate_task_stats(log_root, suite_family=suite_family)
         task_rows, filtered_count, total_count = _process_tasks_for_display(
-            log_root, status_filter, score_filter, tag_filter, search_query
+            log_root, status_filter, score_filter, tag_filter, search_query, suite_family=suite_family
         )
 
         # Pagination

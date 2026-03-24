@@ -80,12 +80,13 @@ def print_results_table(log_roots: list[str]) -> None:
     from rich.console import Console
     from rich.table import Table
 
-    from mobile_world.core.log_viewer.utils import calculate_task_stats
+    from mobile_world.core.log_viewer.utils import calculate_task_stats, read_log_metadata
 
     console = Console()
 
     table = Table(title="Log Results Summary", show_header=True, header_style="bold cyan")
     table.add_column("Log Root", style="dim", no_wrap=True)
+    table.add_column("Suite", style="magenta")
     table.add_column("Total", justify="right")
     table.add_column("Finished", justify="right")
     table.add_column("Success", justify="right")
@@ -103,12 +104,15 @@ def print_results_table(log_roots: list[str]) -> None:
             console.print(f"[yellow]Warning: {log_root} does not exist, skipping.[/yellow]")
             continue
 
-        stats = calculate_task_stats(log_root)
+        metadata = read_log_metadata(log_root)
+        suite_family = metadata.get("suite_family", "mobile_world")
+        stats = calculate_task_stats(log_root, suite_family=suite_family)
         # Use basename for display, but show full path if duplicates exist
         display_name = os.path.basename(log_root.rstrip("/"))
 
         table.add_row(
             display_name,
+            suite_family.replace("_", " ").title(),
             str(stats["total"]),
             str(stats["finished"]),
             str(stats["success"]),

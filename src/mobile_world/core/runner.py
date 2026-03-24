@@ -1,7 +1,9 @@
+import json
 import os
 import random
 import threading
 import time
+from datetime import datetime
 from queue import Queue
 
 from dotenv import load_dotenv
@@ -273,6 +275,20 @@ def run_agent_with_evaluation(
     Returns:
         list[dict]: The evaluation results for each task, containing task_name, success, score, steps, duration_seconds, env_url
     """
+
+    # Write metadata.json at log root for suite family identification
+    os.makedirs(log_file_root, exist_ok=True)
+    metadata_path = os.path.join(log_file_root, "metadata.json")
+    if not os.path.exists(metadata_path):
+        metadata = {
+            "suite_family": suite_family,
+            "seed": seed,
+            "agent_type": agent_type,
+            "model_name": model_name,
+            "timestamp": datetime.now().isoformat(),
+        }
+        with open(metadata_path, "w") as f:
+            json.dump(metadata, f, indent=2, ensure_ascii=False)
 
     container_names = None
     if aw_urls is None or len(aw_urls) == 0:

@@ -22,6 +22,7 @@ from mobile_world.core.log_viewer.utils import (
     get_task_info,
     get_task_status,
     get_task_tags,
+    read_log_metadata,
 )
 
 
@@ -107,8 +108,11 @@ def export_static_site(log_root: str, output_dir: str, max_workers: int = 8) -> 
     os.makedirs(tasks_dir, exist_ok=True)
     os.makedirs(screenshots_dir, exist_ok=True)
 
+    metadata = read_log_metadata(log_root)
+    suite_family = metadata.get("suite_family", "mobile_world")
+
     task_folders = get_task_folders(log_root)
-    stats = calculate_task_stats(log_root)
+    stats = calculate_task_stats(log_root, suite_family=suite_family)
 
     logger.info(f"Exporting {len(task_folders)} tasks to {output_dir}")
 
@@ -124,7 +128,7 @@ def export_static_site(log_root: str, output_dir: str, max_workers: int = 8) -> 
             continue
 
         status, score, reason = get_task_status(task_folder)
-        task_tags = get_task_tags(task_name)
+        task_tags = get_task_tags(task_name, suite_family=suite_family)
         latest_screenshot = get_latest_screenshot(task_folder)
         latest_action = get_latest_trajectory_action(task_folder)
         task_goal = get_task_goal(task_folder)
@@ -190,7 +194,8 @@ def export_static_site(log_root: str, output_dir: str, max_workers: int = 8) -> 
 
     # Generate index page
     _generate_index_page(
-        task_data_list, stats, output_dir, DARK_THEME_CSS, os.path.basename(log_root)
+        task_data_list, stats, output_dir, DARK_THEME_CSS, os.path.basename(log_root),
+        suite_family=suite_family,
     )
 
     logger.info(f"✅ Static site exported to: {output_dir}")
@@ -203,6 +208,7 @@ def _generate_index_page(
     output_dir: str,
     css: str,
     title: str,
+    suite_family: str = "mobile_world",
 ) -> None:
     """Generate the main index.html page."""
     # Build stats HTML
@@ -318,7 +324,10 @@ def _generate_index_page(
 <div class="container">
     <div class="app-header">
         <div class="app-title">
-            <h1>📱 MobileWorld Log Viewer</h1>
+            <div style="display: flex; align-items: center;">
+                <h1>📱 MobileWorld Log Viewer</h1>
+                <span class="badge {'finished' if suite_family == 'mobile_world' else 'running' if suite_family == 'android_world' else 'stale'}" style="margin-left: 12px; font-size: 14px;">{_escape_html(suite_family.replace('_', ' ').title())}</span>
+            </div>
             <div class="last-update">Log: {_escape_html(title)}</div>
         </div>
     </div>

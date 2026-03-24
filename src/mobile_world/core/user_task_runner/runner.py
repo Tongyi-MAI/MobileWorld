@@ -1,9 +1,11 @@
 """User task runner for executing single disposable tasks."""
 
+import json
 import os
 import sys
 import threading
 import time
+from datetime import datetime
 
 from loguru import logger
 from rich.console import Console
@@ -314,6 +316,18 @@ def run_user_task(
     if log_file_root:
         task_log_dir = os.path.join(log_file_root, "user_task")
         os.makedirs(task_log_dir, exist_ok=True)
+
+        # Write metadata.json at log root for suite family identification
+        metadata_path = os.path.join(log_file_root, "metadata.json")
+        if not os.path.exists(metadata_path):
+            metadata = {
+                "suite_family": "user_task",
+                "agent_type": agent_type,
+                "model_name": model_name,
+                "timestamp": datetime.now().isoformat(),
+            }
+            with open(metadata_path, "w") as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
 
         thread_id = threading.current_thread().ident
         thread_log_file = os.path.join(task_log_dir, f"thread_{thread_id}.log")

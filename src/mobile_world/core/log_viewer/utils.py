@@ -11,12 +11,35 @@ from mobile_world.runtime.client import parse_result_file
 
 # Global state for log root (could be enhanced with proper session management)
 _log_root_state: dict[str, str] = {}
-_task_registry = None
+_task_registries: dict[str, object] = {}
 
 
 def get_log_root_state() -> dict[str, str]:
     """Get the global log root state."""
     return _log_root_state
+
+
+def read_log_metadata(log_root: str) -> dict:
+    """Read metadata.json from a log root directory.
+
+    Returns a dict with at minimum {"suite_family": "mobile_world"}.
+    Falls back to defaults if file doesn't exist (backward compat).
+    """
+    defaults = {"suite_family": "mobile_world", "seed": None}
+    if not log_root:
+        return defaults
+    metadata_path = os.path.join(log_root, "metadata.json")
+    if not os.path.exists(metadata_path):
+        return defaults
+    try:
+        with open(metadata_path) as f:
+            data = json.load(f)
+        for key, value in defaults.items():
+            data.setdefault(key, value)
+        return data
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning(f"Error reading metadata.json in {log_root}: {e}")
+        return defaults
 
 
 def is_valid_trajectory_dir(path: str) -> bool:
@@ -64,22 +87,28 @@ def get_child_trajectory_dirs(parent_path: str) -> list[str]:
     return sorted(valid_dirs)
 
 
-def get_registry():
-    """Get or initialize the task registry."""
-    global _task_registry
-    if _task_registry is None:
+def get_registry(suite_family: str = "mobile_world"):
+    """Get or initialize the task registry for a suite family."""
+    global _task_registries
+    if suite_family not in _task_registries:
         try:
-            # Default to mobile_world suite
-            _task_registry = get_task_registry("mobile_world")
+            if suite_family == "android_world":
+                from mobile_world.tasks.aw_registry import AWTaskRegistry
+                _task_registries[suite_family] = AWTaskRegistry()
+            elif suite_family == "mobile_world":
+                _task_registries[suite_family] = get_task_registry("mobile_world")
+            else:
+                # For unknown suite families (e.g. "user_task"), no registry
+                return None
         except Exception as e:
-            logger.error(f"Failed to load task registry: {e}")
+            logger.error(f"Failed to load task registry for {suite_family}: {e}")
             return None
-    return _task_registry
+    return _task_registries[suite_family]
 
 
-def get_task_tags(task_name: str) -> list[str]:
+def get_task_tags(task_name: str, suite_family: str = "mobile_world") -> list[str]:
     """Get tags for a specific task from the registry."""
-    registry = get_registry()
+    registry = get_registry(suite_family)
     if not registry:
         return []
     try:
@@ -114,9 +143,9 @@ def count_mcp_actions(trajectory_steps: list[dict]) -> int:
     return count
 
 
-def get_all_tags() -> list[str]:
+def get_all_tags(suite_family: str = "mobile_world") -> list[str]:
     """Get all unique tags from the registry."""
-    registry = get_registry()
+    registry = get_registry(suite_family)
     tags = set()
     if registry:
         for t_name in registry.list_tasks():
@@ -394,7 +423,7 @@ def get_task_info(log_root: str, task_name: str) -> dict | None:
     }
 
 
-def calculate_task_stats(log_root: str) -> dict:
+def calculate_task_stats(log_root: str, suite_family: str = "mobile_world") -> dict:
     """Calculate statistics for all tasks in the log root.
 
     Metrics:
@@ -475,7 +504,7 @@ def calculate_task_stats(log_root: str) -> dict:
             continue
 
         # Get tags for this task
-        task_tags = get_task_tags(task_name)
+        task_tags = get_task_tags(task_name, suite_family=suite_family)
         has_mcp = "agent-mcp" in task_tags
         has_user_interaction = "agent-user-interaction" in task_tags
         is_standard = not has_mcp and not has_user_interaction
@@ -533,8 +562,9 @@ def calculate_task_stats(log_root: str) -> dict:
         total_steps += step_count
 
     total = finished_count + running_count + stale_count
-    total_task_no = 201
-    success_rate = success_count / total_task_no * 100
+    registry = get_registry(suite_family)
+    total_task_no = len(registry.list_tasks()) if registry else total
+    success_rate = (success_count / total_task_no * 100) if total_task_no > 0 else 0.0
     avg_steps = (total_steps / total) if total > 0 else 0.0
 
     mcp_success_rate = (mcp_success / mcp_finished * 100) if mcp_finished > 0 else 0.0
