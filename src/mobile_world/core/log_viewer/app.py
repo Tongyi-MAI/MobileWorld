@@ -1,12 +1,17 @@
 """Main FastHTML application for log viewer."""
 
+import warnings
 from urllib.parse import quote
 
-from fasthtml.common import fast_app, serve
+import uvicorn
+from fasthtml.common import fast_app
 from loguru import logger
 
 from mobile_world.core.log_viewer.routes import register_routes
 from mobile_world.core.log_viewer.utils import get_log_root_state
+
+# Suppress deprecation warnings from transitive dependencies
+warnings.filterwarnings("ignore", message="'audioop' is deprecated", category=DeprecationWarning)
 
 # Create the FastHTML app - will be configured in main()
 app, rt = fast_app()
@@ -28,15 +33,14 @@ def main(log_root: str = "", server_port: int = 8760, base_path: str = "/"):
         log_root_state["log_root"] = log_root
         logger.info(f"Setting default log root to: {log_root}")
         logger.info(f"Base path: {base_path}")
-        # Open browser with log_root parameter
         url = f"http://localhost:{server_port}{base_path}?log_root={quote(log_root)}"
         logger.info(f"Open log viewer at: {url}")
-
-        serve(port=server_port, reload=False)
     else:
         logger.info("No log root provided, starting with empty state")
         logger.info(f"Base path: {base_path}")
-        serve(port=server_port, reload=False)
+
+    print(f"Link: http://localhost:{server_port}")
+    uvicorn.run(app, host="0.0.0.0", port=server_port, reload=False, ws="none")
 
 
 if __name__ == "__main__":
