@@ -75,6 +75,8 @@ class AWTaskWrapper(BaseTask):
         """
         if self.initialized:
             logger.warning(f"{self.name} initialized before. Initializing again.")
+            # Recreate TaskEval instance — AW TaskEvals refuse double init
+            self._task_eval = self._task_eval_class(self._aw_params)
 
         # Load snapshot
         if self.snapshot_tag is not None:
