@@ -276,10 +276,19 @@ def run_agent_with_evaluation(
         list[dict]: The evaluation results for each task, containing task_name, success, score, steps, duration_seconds, env_url
     """
 
-    # Write metadata.json at log root for suite family identification
+    # Write or validate metadata.json at log root for suite family identification
     os.makedirs(log_file_root, exist_ok=True)
     metadata_path = os.path.join(log_file_root, "metadata.json")
-    if not os.path.exists(metadata_path):
+    if os.path.exists(metadata_path):
+        with open(metadata_path) as f:
+            existing = json.load(f)
+        if existing.get("suite_family") != suite_family:
+            raise ValueError(
+                f"Log folder '{log_file_root}' was created with suite_family='{existing.get('suite_family')}', "
+                f"but current run uses suite_family='{suite_family}'. "
+                f"Use a different --log-file-root or match the suite family."
+            )
+    else:
         metadata = {
             "suite_family": suite_family,
             "seed": seed,

@@ -317,9 +317,18 @@ def run_user_task(
         task_log_dir = os.path.join(log_file_root, "user_task")
         os.makedirs(task_log_dir, exist_ok=True)
 
-        # Write metadata.json at log root for suite family identification
+        # Write or validate metadata.json at log root for suite family identification
         metadata_path = os.path.join(log_file_root, "metadata.json")
-        if not os.path.exists(metadata_path):
+        if os.path.exists(metadata_path):
+            with open(metadata_path) as f:
+                existing = json.load(f)
+            if existing.get("suite_family") != "user_task":
+                raise ValueError(
+                    f"Log folder '{log_file_root}' was created with suite_family='{existing.get('suite_family')}', "
+                    f"but current run uses suite_family='user_task'. "
+                    f"Use a different --log-file-root or match the suite family."
+                )
+        else:
             metadata = {
                 "suite_family": "user_task",
                 "agent_type": agent_type,
