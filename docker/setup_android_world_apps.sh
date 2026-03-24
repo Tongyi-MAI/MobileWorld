@@ -6,7 +6,7 @@
 #   docker exec <container_id> /app/docker/setup_android_world_apps.sh
 #
 # After this script completes, commit the container to save the snapshot:
-#   docker commit <container_id> mobile_world:aw
+#   docker commit <container_id> mobile_world:aw-apps
 
 set -e
 
@@ -34,34 +34,15 @@ echo "Loading init_state snapshot as base..."
 adb emu avd snapshot load init_state
 sleep 5
 
-# Run AndroidWorld app installation using our adapter
-echo "Installing AndroidWorld apps..."
+# Ensure root for setup operations
+echo "Setting adb root..."
+adb root
+sleep 3
+
+# Run the comprehensive Python setup
+echo "Running AndroidWorld app setup..."
 cd /app/service
-.venv/bin/python -c "
-from mobile_world.runtime.controller import AndroidController
-from mobile_world.runtime.aw_env_adapter import EnvAdapter
-
-# Create the adapter stack that AW setup code expects:
-# setup_apps(env) where env.controller is our ControllerAdapter
-controller = AndroidController(device='emulator-5554')
-env = EnvAdapter(controller)
-
-from android_world.env.setup_device import setup
-
-print('Starting app installation...')
-print('This may take 10-30 minutes depending on network speed.')
-print('')
-
-try:
-    setup.setup_apps(env)
-    print('')
-    print('App installation complete.')
-except Exception as e:
-    print(f'Warning: Some apps may have failed to install: {e}')
-    import traceback
-    traceback.print_exc()
-    print('Continuing with snapshot...')
-"
+.venv/bin/python /app/docker/setup_aw_apps.py
 
 # Save the snapshot
 echo ""
@@ -78,4 +59,4 @@ adb emu avd snapshot list | grep -q "aw_init_state" && \
 echo ""
 echo "=== Setup Complete ==="
 echo "To finalize, commit this container:"
-echo "  docker commit <container_id> mobile_world:aw"
+echo "  docker commit <container_id> mobile_world:aw-apps"

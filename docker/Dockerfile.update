@@ -19,8 +19,9 @@ RUN uv pip install setuptools --python /app/service/.venv/bin/python && \
     cd /app/service/resources/android_world && \
     uv pip install -e . --no-deps --no-build-isolation --python /app/service/.venv/bin/python
 
-# Copy setup script for AndroidWorld app installation
+# Copy setup scripts for AndroidWorld app installation
 COPY docker/setup_android_world_apps.sh /app/docker/setup_android_world_apps.sh
+COPY docker/setup_aw_apps.py /app/docker/setup_aw_apps.py
 RUN chmod +x /app/docker/setup_android_world_apps.sh
 
 # Update CMD to also tail dockerd log

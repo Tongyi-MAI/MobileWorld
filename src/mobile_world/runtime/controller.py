@@ -439,7 +439,7 @@ class AndroidController:
         Returns:
             AdbResponse with remote_path in output if successful
         """
-        push_command = f"adb -s {self.device} push {local_path} {remote_path}"
+        push_command = f'adb -s {self.device} push "{local_path}" "{remote_path}"'
         result = execute_adb(push_command)
 
         if result.success:
@@ -463,7 +463,7 @@ class AndroidController:
         Returns:
             AdbResponse with local_path in output if successful
         """
-        pull_command = f"adb -s {self.device} pull {remote_path} {local_path}"
+        pull_command = f'adb -s {self.device} pull "{remote_path}" "{local_path}"'
         result = execute_adb(pull_command)
 
         if result.success:

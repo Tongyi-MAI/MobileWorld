@@ -2,6 +2,7 @@
 
 import contextlib
 import re
+import subprocess
 import tempfile
 import shutil
 from dataclasses import dataclass, field
@@ -39,6 +40,31 @@ class ControllerAdapter:
         """Run an ADB command with the device serial."""
         return execute_adb(f"adb -s {self._controller.device} {cmd}")
 
+    def _run_adb_args(self, args: list[str]) -> "AdbResponse":
+        """Run ADB with args as a list (avoids shell interpretation of newlines)."""
+        cmd_list = ["adb", "-s", self._controller.device] + args
+        try:
+            result = subprocess.run(
+                cmd_list, capture_output=True, text=True, timeout=60
+            )
+            if result.returncode == 0:
+                return AdbResponse(
+                    success=True,
+                    output=result.stdout.strip(),
+                    return_code=result.returncode,
+                    command=" ".join(cmd_list[:4]) + "...",
+                )
+            return AdbResponse(
+                success=False,
+                error=result.stderr or "Command execution failed",
+                return_code=result.returncode,
+                command=" ".join(cmd_list[:4]) + "...",
+            )
+        except Exception as e:
+            return AdbResponse(
+                success=False, error=str(e), return_code=-1, command=str(cmd_list)
+            )
+
     def _ok_response(self, output: str = "") -> "adb_pb2.AdbResponse":
         from android_env.proto import adb_pb2
         response = adb_pb2.AdbResponse()
@@ -65,8 +91,9 @@ class ControllerAdapter:
         # --- Generic shell command ---
         if request.HasField("generic"):
             args = list(request.generic.args)
-            cmd = " ".join(args)
-            result = self._run_adb(cmd)
+            # Always use list-based subprocess to avoid shell interpretation
+            # issues (multiline scripts, spaces in paths, special chars).
+            result = self._run_adb_args(args)
             if result.success:
                 return self._ok_response(result.output)
             return self._error_response(result.error or "")
@@ -156,6 +183,45 @@ class ControllerAdapter:
             result = self._run_adb(f"install -r {local_path}")
             return self._ok_response() if result.success else self._error_response()
 
+        # --- Pull file (returns file content in response) ---
+        if request.HasField("pull"):
+            remote_path = request.pull.path
+            response = adb_pb2.AdbResponse()
+            try:
+                tmp = tempfile.NamedTemporaryFile(
+                    delete=False, suffix=Path(remote_path).suffix
+                )
+                tmp.close()
+                self._controller.pull_file(remote_path, tmp.name)
+                with open(tmp.name, "rb") as f:
+                    content = f.read()
+                Path(tmp.name).unlink(missing_ok=True)
+                response.status = adb_pb2.AdbResponse.Status.OK
+                response.pull.content = content
+            except Exception as e:
+                logger.warning(f"Pull failed for {remote_path}: {e}")
+                response.status = adb_pb2.AdbResponse.Status.ADB_ERROR
+            return response
+
+        # --- Push file ---
+        if request.HasField("push"):
+            response = adb_pb2.AdbResponse()
+            try:
+                remote_path = request.push.path
+                content = request.push.content
+                tmp = tempfile.NamedTemporaryFile(
+                    delete=False, suffix=Path(remote_path).suffix
+                )
+                tmp.write(content)
+                tmp.close()
+                self._controller.push_file(tmp.name, remote_path)
+                Path(tmp.name).unlink(missing_ok=True)
+                response.status = adb_pb2.AdbResponse.Status.OK
+            except Exception as e:
+                logger.warning(f"Push failed: {e}")
+                response.status = adb_pb2.AdbResponse.Status.ADB_ERROR
+            return response
+
         # --- Fallback: try to handle as generic ---
         logger.warning(f"Unsupported AdbRequest type, attempting generic handling: {request}")
         return self._error_response("unsupported request type")
@@ -172,22 +238,43 @@ class ControllerAdapter:
         return representation_utils.xml_dump_to_ui_elements(xml_content)
 
     @contextlib.contextmanager
-    def pull_file(self, remote_path: str, local_path: str = None, timeout_sec: float = None):
-        """Pull a file from device, yielding the local path as context manager."""
-        if local_path is None:
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=Path(remote_path).suffix)
-            local_path = tmp.name
-            tmp.close()
+    def pull_file(self, remote_path: str, timeout_sec: float = None):
+        """Pull a remote directory to a local temp dir, yielding the temp dir path.
 
-        self._controller.pull_file(remote_path, local_path)
+        AndroidWorld expects pull_file to:
+        1. Take a file path (e.g., /data/data/app/databases/events.db)
+        2. Pull the ENTIRE parent directory to a local temp directory
+        3. Yield the temp directory path (not the file path)
+
+        The caller then constructs the full path:
+            local_db_path = os.path.join(local_dir, "events.db")
+        """
+        remote_dir = str(Path(remote_path).parent)
+        tmp_dir = tempfile.mkdtemp(prefix="aw_pull_")
         try:
-            yield local_path
+            # Pull entire remote directory using adb pull
+            result = self._run_adb_args(["pull", remote_dir + "/.", tmp_dir + "/"])
+            if not result.success:
+                logger.warning(f"Directory pull failed, trying single file: {result.error}")
+                # Fallback: pull just the single file
+                filename = Path(remote_path).name
+                local_file = Path(tmp_dir) / filename
+                self._controller.pull_file(remote_path, str(local_file))
+            yield tmp_dir
         finally:
-            pass  # caller manages cleanup
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     def push_file(self, local_path: str, remote_path: str, timeout_sec: float = None):
-        """Push a file to device."""
-        self._controller.push_file(local_path, remote_path)
+        """Push a local file to the device, replacing the remote directory.
+
+        Matches AndroidWorld's push_file: clear remote dir, then push file.
+        Uses AW's file_utils.copy_data_to_device which sends a Push protobuf
+        request (handled by execute_adb_call above).
+        """
+        from android_world.utils import file_utils
+        remote_dir = str(Path(remote_path).parent)
+        file_utils.clear_directory(remote_dir, self)
+        file_utils.copy_data_to_device(local_path, remote_path, self.env, timeout_sec)
 
 
 class EnvAdapter:
