@@ -88,12 +88,55 @@ Key adaptations in `src/mobile_world/runtime/aw_env_adapter.py`:
 
 ## Docker Setup
 
-The `Dockerfile.update` layers on top of the base MobileWorld image:
+### Building the aw-apps image (recommended: `Dockerfile.aw`)
 
-1. Copies source code and AndroidWorld submodule
-2. Applies task eval patches
-3. Installs AndroidWorld as editable package (with setuptools for pkg_resources)
-4. Copies setup scripts
+`docker/Dockerfile.aw` builds a single-layer image from scratch, avoiding Docker layer duplication that inflates image size (~22-24GB vs ~30GB with commit-based approach).
+
+**Prerequisites**: An extracted AVD directory with the `aw_init_state` snapshot (all AW apps pre-installed). Extract from an existing image:
+
+```bash
+docker create --name avd_extract mobile_world:aw-apps true
+docker cp avd_extract:/root/.android/avd/Pixel_8_API_34_x86_64.avd docker/Pixel_8_API_34_x86_64.avd
+docker rm avd_extract
+# Clean stale lock files
+find docker/Pixel_8_API_34_x86_64.avd/ -name "*.lock" -type f -delete
+```
+
+**Build**:
+```bash
+docker build -f docker/Dockerfile.aw -t mobile_world:aw-apps .
+# Clean up extracted AVD after build (it's .gitignored)
+rm -rf docker/Pixel_8_API_34_x86_64.avd
+```
+
+Build time: ~15-20 min. Expected image size: ~22-24GB.
+
+### Alternative: incremental update (`Dockerfile.update`)
+
+`docker/Dockerfile.update` layers on top of the base `ghcr.io/tongyi-mai/mobile_world:latest` image. Faster to build but requires a subsequent `docker commit` after app setup, which duplicates the AVD data across layers (~30GB).
+
+### First-time app setup (only needed to create initial AVD snapshot)
+
+If building from scratch without an existing `aw_init_state` snapshot:
+
+```bash
+# 1. Build base image with Dockerfile.update
+docker build -f docker/Dockerfile.update -t mobile_world:aw-base .
+
+# 2. Run container and install apps (~20-30 min)
+docker run -d --privileged --name aw_setup mobile_world:aw-base
+docker exec aw_setup /app/docker/setup_android_world_apps.sh
+
+# 3. Commit (creates bloated image due to layer duplication)
+docker commit aw_setup mobile_world:aw-apps-unflat
+
+# 4. Extract AVD and rebuild with Dockerfile.aw for slim image
+docker create --name avd_extract mobile_world:aw-apps-unflat true
+docker cp avd_extract:/root/.android/avd/Pixel_8_API_34_x86_64.avd docker/Pixel_8_API_34_x86_64.avd
+docker rm avd_extract
+docker build -f docker/Dockerfile.aw -t mobile_world:aw-apps .
+rm -rf docker/Pixel_8_API_34_x86_64.avd
+```
 
 The entrypoint cleans stale emulator lock files (left from `docker commit` of running containers) to prevent multi-container boot failures.
 

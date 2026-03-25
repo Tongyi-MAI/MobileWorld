@@ -5,6 +5,7 @@ import time
 
 from loguru import logger
 
+from mobile_world.runtime.app_helpers.system import time_sync_to_now
 from mobile_world.runtime.aw_env_adapter import EnvAdapter
 from mobile_world.runtime.controller import AndroidController
 from mobile_world.tasks.base import BaseTask
@@ -88,6 +89,10 @@ class AWTaskWrapper(BaseTask):
             controller.app_switch()
             controller.home()
             time.sleep(2)
+
+        # Sync emulator time — AW snapshots freeze time which breaks
+        # Chrome (SSL errors), Calendar, and other time-sensitive apps
+        time_sync_to_now()
 
         # Create adapter and delegate to AndroidWorld's initialization
         self._env_adapter = EnvAdapter(controller)

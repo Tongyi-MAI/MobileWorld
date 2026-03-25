@@ -17,6 +17,12 @@ if [ "${ENABLE_VNC:-false}" = "true" ] || [ "${ENABLE_VNC:-false}" = "1" ]; then
     /app/docker/start_novnc.sh
     # assuming dev mode
     uv sync --extra dev --no-cache
+    # Re-install AndroidWorld if present (uv sync removes packages not in lockfile)
+    if [ -d /app/service/resources/android_world ]; then
+        cd /app/service/resources/android_world && \
+        uv pip install -e . --no-deps --no-build-isolation --python /app/service/.venv/bin/python
+        cd /app/service
+    fi
 else
     uv run mobile-world viewer --port 7860 &
 fi
