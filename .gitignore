@@ -45,6 +45,7 @@ src/mobile_world/agents/implementations/assets/
 *.avd/
 *.avd*/
 apks/
+!docker/apks/
 *.tar
 .venv
 .ruff_cache

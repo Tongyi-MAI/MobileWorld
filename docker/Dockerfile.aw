@@ -85,6 +85,10 @@ COPY README.md /app/service/README.md
 # AndroidWorld submodule + emulator compatibility patch
 COPY resources/android_world/ /app/service/resources/android_world/
 COPY docker/patches/aw_browser.py /app/service/resources/android_world/android_world/task_evals/single/browser.py
+COPY docker/patches/aw_audio_recorder.py /app/service/resources/android_world/android_world/task_evals/single/audio_recorder.py
+
+# Patched Clipper APK (original targets SDK 0, incompatible with API 34)
+COPY docker/apks/clipper.apk /app/docker/apks/clipper.apk
 
 # Python dependencies — MobileWorld + AndroidWorld
 RUN cd /app/service && uv sync --no-cache && \

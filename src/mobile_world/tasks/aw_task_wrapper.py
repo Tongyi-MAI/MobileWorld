@@ -8,6 +8,7 @@ from loguru import logger
 from mobile_world.runtime.app_helpers.system import time_sync_to_now
 from mobile_world.runtime.aw_env_adapter import EnvAdapter
 from mobile_world.runtime.controller import AndroidController
+from mobile_world.runtime.utils.helpers import execute_adb
 from mobile_world.tasks.base import BaseTask
 
 
@@ -93,6 +94,23 @@ class AWTaskWrapper(BaseTask):
         # Sync emulator time — AW snapshots freeze time which breaks
         # Chrome (SSL errors), Calendar, and other time-sensitive apps
         time_sync_to_now()
+
+        adb = f"adb -s {controller.device}"
+        # Prevent screen sleep during evaluation — UIAutomator dump fails
+        # when screen is off, causing false negatives for Clock tasks etc.
+        execute_adb(f"{adb} shell settings put system screen_off_timeout 2147483647")
+        # Revoke calendar permissions so Simple Calendar Pro uses its internal
+        # SQLite DB (which the evaluator reads) instead of system CalendarProvider
+        execute_adb(f"{adb} shell pm revoke com.simplemobiletools.calendar.pro android.permission.READ_CALENDAR")
+        execute_adb(f"{adb} shell pm revoke com.simplemobiletools.calendar.pro android.permission.WRITE_CALENDAR")
+        # Disable Fossify Calendar to avoid the agent clicking the wrong calendar
+        # app (Fossify has a green "Calendar" icon that conflicts with Simple Calendar Pro)
+        execute_adb(f"{adb} shell pm disable-user --user 0 org.fossify.calendar")
+        # Clear logcat so browser task success markers aren't stale
+        execute_adb(f"{adb} logcat -c")
+        # Enable Chrome renderer accessibility so UIAutomator can see WebView
+        # content (needed for browser task evaluation)
+        execute_adb(f'{adb} shell "echo chrome --force-renderer-accessibility > /data/local/tmp/chrome-command-line"')
 
         # Create adapter and delegate to AndroidWorld's initialization
         self._env_adapter = EnvAdapter(controller)

@@ -21,11 +21,11 @@ Both suites use the same AVD (`Pixel_8_API_34_x86_64`). This avoids doubling the
 
 Official AndroidWorld runs `setup.setup_apps(env)` which installs APKs and performs UI-based onboarding. We replicate this with a custom script (`docker/setup_aw_apps.py`) that handles emulator differences:
 
-**23 of 24 apps install successfully.** Known issues:
+**All 24 apps install successfully.** Known issues addressed:
 
 | App | Issue | Workaround |
 |---|---|---|
-| **Clipper** | APK targets SDK 0, rejected by API 34 (`INSTALL_FAILED_DEPRECATED_SDK_VERSION`) | No workaround; 2 clipboard-related tasks are affected |
+| **Clipper** | Original APK targets SDK 0, rejected by API 34 (`INSTALL_FAILED_DEPRECATED_SDK_VERSION`) | Rebuilt from [source](https://github.com/majido/clipper) targeting SDK 34; patched APK shipped at `docker/apks/clipper.apk` |
 | **Markor** | Default notebook directory not created on Pixel 8 | Setup script pre-creates `/Documents/Markor/` with default files |
 | **Chrome** | Onboarding text differs on API 34 ("Accept & continue" not found) | Permissions granted via ADB fallback; onboarding skipped |
 | **Contacts** | "Don't allow" button text differs | Skipped gracefully |
@@ -58,6 +58,22 @@ Applied in `Dockerfile.update`:
 COPY docker/patches/aw_browser.py /app/service/resources/android_world/android_world/task_evals/single/browser.py
 ```
 
+The patch also adds a **logcat-based success check** as fallback. UIAutomator cannot see WebView content inside Chrome, so the patched HTML emits `console.log('MOBILEWORLD_TASK_SUCCESS')` on completion and `is_successful()` checks Chrome's logcat output via `adb shell logcat -d -s chromium:I` when the UIAutomator check fails. This fixes `BrowserDraw`, `BrowserMaze`, and `BrowserMultiply`.
+
+### AudioRecorder Fix (`docker/patches/aw_audio_recorder.py`)
+
+The upstream evaluator appends `.m4a` to `file_name`, but `generate_random_params()` already produces filenames with the `.m4a` extension (e.g., `"2023_05_21_debate.m4a"`). This causes the evaluator to look for `"2023_05_21_debate.m4a.m4a"`. The patch checks if the extension is already present before appending.
+
+### Clipper APK Rebuild (`docker/apks/clipper.apk`)
+
+The original Clipper app ([majido/clipper](https://github.com/majido/clipper)) targets SDK 0, which is rejected by API 34 (`INSTALL_FAILED_DEPRECATED_SDK_VERSION`). The Clipper submodule is at `resources/clipper/` and patches in `docker/patches/clipper_*.{java,xml}` modernize it for SDK 34:
+
+- `clipper_AndroidManifest.xml`: sets `targetSdkVersion="24"` (>=23 to install on API 34, <26 to avoid implicit broadcast restrictions), adds `android:exported` attributes
+- `clipper_ClipperReceiver.java`: uses `android.content.ClipboardManager` + `ClipData` (replaces deprecated `android.text.ClipboardManager`)
+- `clipper_Main.java`: removes resource dependencies (`R.layout.main`, `ClipboardService`)
+
+Build with `docker/build_clipper.sh` (requires Android SDK with `build-tools;34.0.0` and `platforms;android-34`). The pre-built APK is shipped at `docker/apks/clipper.apk` and installed during setup instead of downloading from GCS. This fixes 3 clipboard tasks: `SystemCopyToClipboard`, `SimpleSmsSendClipboardContent`, `MarkorCreateNoteFromClipboard`.
+
 ## Adapter Layer
 
 AndroidWorld tasks expect an `env` object backed by `android_env` (protobuf-based ADB interface). MobileWorld uses raw ADB commands via `AndroidController`. The adapter layer bridges these:
@@ -83,6 +99,10 @@ Key adaptations in `src/mobile_world/runtime/aw_env_adapter.py`:
 - Overrides `initialize_task()` entirely — skips MobileWorld-specific cleanup (Mattermost, Mastodon, mall) and loads `aw_init_state` snapshot instead of `init_state`
 - Supports `--seed` for reproducible random params via `generate_random_params()`
 - Delegates `is_successful()` and `tear_down()` to the wrapped TaskEval
+- **Runtime emulator fixes** applied after snapshot load:
+  - `screen_off_timeout` set to max — prevents screen sleep during evaluation, which causes UIAutomator dumps to fail (fixes Clock stopwatch tasks)
+  - Revokes `READ_CALENDAR`/`WRITE_CALENDAR` from Simple Calendar Pro — forces app to use its internal SQLite DB (which the evaluator reads) instead of the system CalendarProvider (fixes all 8 calendar tasks)
+  - Clears logcat buffer — prevents stale browser success markers from previous tasks
 
 `AWTaskRegistry` (`src/mobile_world/tasks/aw_registry.py`) discovers all AndroidWorld tasks and wraps them.
 

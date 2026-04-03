@@ -17,6 +17,7 @@
 import random
 import time
 from typing import Any
+from android_env.proto import adb_pb2
 from android_world.env import adb_utils
 from android_world.env import device_constants
 from android_world.env import interface
@@ -106,6 +107,21 @@ class BrowserTask(task_eval.TaskEval):
     for element in state.ui_elements:
       if element.text == 'Success!':
         return 1.0
+
+    # MobileWorld fallback: UIAutomator cannot see WebView content.
+    # Check Chrome's console.log output via logcat for the success marker
+    # that our patched HTML emits.
+    try:
+      res = adb_utils.issue_generic_request(
+          ['shell', 'logcat', '-d', '-s', 'chromium:I', '-t', '50'],
+          env.controller,
+      )
+      if res.status == adb_pb2.AdbResponse.Status.OK:
+        output = res.generic.output.decode('utf-8', errors='replace')
+        if 'MOBILEWORLD_TASK_SUCCESS' in output:
+          return 1.0
+    except Exception:
+      pass
     return 0.0
 
   @classmethod
@@ -317,6 +333,7 @@ class BrowserMaze(BrowserTask):
     function checkGoalReached() {
       const { row, col } = characterPosition;
       if (mazeLayout[row][col] === '$') {
+        console.log('MOBILEWORLD_TASK_SUCCESS');
         document.body.innerHTML = '<h1>Success!</h1>';
       }
     }
@@ -430,6 +447,7 @@ class BrowserMultiply(BrowserTask):
       const product = numbers.reduce((acc, num) => acc * num, 1);
       const result = document.getElementById('result');
       if (answer === product) {
+        console.log('MOBILEWORLD_TASK_SUCCESS');
         result.innerHTML = '<h2>Success!</h2>';
       } else {
         result.innerHTML = '<h2></h2>';
@@ -623,6 +641,7 @@ class BrowserDraw(BrowserTask):
 
     function showResult(success) {
       if (success) {
+        console.log('MOBILEWORLD_TASK_SUCCESS');
         resultElement.textContent = 'Success!';
       } else {
         resultElement.textContent = '';

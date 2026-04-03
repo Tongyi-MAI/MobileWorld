@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Patched for MobileWorld: targets SDK 34 (original targets SDK 0/10, rejected by API 34) -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="ca.zgrs.clipper"
+    android:versionCode="2"
+    android:versionName="1.2-mw">
+
+    <!-- targetSdkVersion=24: must be >=23 to install on API 34, and <26 to
+         avoid implicit broadcast restrictions (Clipper uses am broadcast -a
+         clipper.set/get without explicit component targeting). -->
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="24" />
+
+    <application android:label="Clipper">
+        <activity android:name=".Main"
+            android:launchMode="singleInstance"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <receiver android:name=".ClipperReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <data android:scheme="clipper" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="clipper.get" />
+                <action android:name="clipper.set" />
+                <action android:name="get" />
+                <action android:name="set" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

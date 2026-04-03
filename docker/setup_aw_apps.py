@@ -258,15 +258,17 @@ def setup_android_world():
 
 
 def setup_clipper():
-    """Clipper: launch, click Continue and OK."""
+    """Clipper: install patched APK (SDK 34 compatible), launch and close."""
     pkg = "ca.zgrs.clipper"
+    # Install our patched APK if not already installed.
+    # The original from GCS targets SDK 0, which is rejected by API 34.
+    installed = get_installed_packages()
+    if pkg not in installed:
+        print("  Installing patched clipper.apk (SDK 34 compatible)...")
+        adb("install", "-r", "/app/docker/apks/clipper.apk")
     clear_app_data(pkg)
     launch_activity("ca.zgrs.clipper/ca.zgrs.clipper.Main")
-    time.sleep(3)
-    _try_click_element_via_adapter("clipper", "Continue")
     time.sleep(2)
-    _try_click_element_via_adapter("clipper", "OK")
-    time.sleep(1)
     force_stop(pkg)
 
 
@@ -598,7 +600,7 @@ def main():
     # Map app_name -> AW AppSetup class
     aw_app_classes = {cls.app_name: cls for cls in [
         aw_apps.AndroidWorldApp, aw_apps.AudioRecorder, aw_apps.CameraApp,
-        aw_apps.ChromeApp, aw_apps.ClipperApp, aw_apps.ClockApp,
+        aw_apps.ChromeApp, aw_apps.ClockApp,  # ClipperApp removed — installed from patched local APK
         aw_apps.ContactsApp, aw_apps.DialerApp, aw_apps.ExpenseApp,
         aw_apps.FilesApp, aw_apps.JoplinApp, aw_apps.MarkorApp,
         aw_apps.MiniWobApp, aw_apps.OpenTracksApp, aw_apps.OsmAndApp,

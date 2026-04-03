@@ -16,6 +16,10 @@ COPY resources/android_world/ /app/service/resources/android_world/
 
 # Patch AndroidWorld files for emulator compatibility (swiftshader GPU)
 COPY docker/patches/aw_browser.py /app/service/resources/android_world/android_world/task_evals/single/browser.py
+COPY docker/patches/aw_audio_recorder.py /app/service/resources/android_world/android_world/task_evals/single/audio_recorder.py
+
+# Patched Clipper APK (original targets SDK 0, incompatible with API 34)
+COPY docker/apks/clipper.apk /app/docker/apks/clipper.apk
 
 # Install AndroidWorld as editable package into the service venv
 RUN uv pip install setuptools --python /app/service/.venv/bin/python && \

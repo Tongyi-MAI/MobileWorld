@@ -10,3 +10,6 @@
 [submodule "resources/android_world"]
 	path = resources/android_world
 	url = https://github.com/google-research/android_world.git
+[submodule "resources/clipper"]
+	path = resources/clipper
+	url = https://github.com/majido/clipper
