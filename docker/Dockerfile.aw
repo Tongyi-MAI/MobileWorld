@@ -37,11 +37,6 @@ RUN apt-get update && \
     python3 \
     python3-pip \
     ffmpeg \
-    xvfb \
-    x11vnc \
-    openbox \
-    novnc \
-    websockify \
     socat && \
     update-ca-certificates && \
     ln -sf python3 /usr/bin/python && \
@@ -49,7 +44,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Pin setuptools < 81 to keep pkg_resources (needed by supervisord for DinD)
-RUN pip install --break-system-packages --no-cache "setuptools<81" uv
+# aiohttp: needed by ws_adb_proxy.py (WebSocket ADB proxy for web-scrcpy viewer)
+RUN pip install --break-system-packages --no-cache "setuptools<81" uv aiohttp
 
 RUN mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools" && \
     cd "$ANDROID_SDK_ROOT/cmdline-tools" && \
@@ -78,6 +74,10 @@ COPY docker/start_novnc.sh /app/docker/start_novnc.sh
 COPY docker/start_emulator.sh /app/docker/start_emulator.sh
 RUN chmod +x /app/docker/start_novnc.sh /app/docker/start_emulator.sh
 
+# web-scrcpy viewer (Apache 2.0 licensed, built from panda-web-scrcpy)
+COPY docker/web-scrcpy /app/web-scrcpy
+COPY docker/ws_adb_proxy.py /app/docker/ws_adb_proxy.py
+
 # Source code
 COPY src /app/service/src
 COPY README.md /app/service/README.md
@@ -86,6 +86,7 @@ COPY README.md /app/service/README.md
 COPY resources/android_world/ /app/service/resources/android_world/
 COPY docker/patches/aw_browser.py /app/service/resources/android_world/android_world/task_evals/single/browser.py
 COPY docker/patches/aw_audio_recorder.py /app/service/resources/android_world/android_world/task_evals/single/audio_recorder.py
+COPY docker/patches/aw_expense.py /app/service/resources/android_world/android_world/task_evals/single/expense.py
 
 # Patched Clipper APK (original targets SDK 0, incompatible with API 34)
 COPY docker/apks/clipper.apk /app/docker/apks/clipper.apk

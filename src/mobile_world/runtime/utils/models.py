@@ -513,6 +513,7 @@ class ContainerConfig(BaseModel):
     image: str = DEFAULT_IMAGE
     dev_mode: bool = False
     enable_vnc: bool = False
+    enable_viewer: bool = False
     env_file_path: Any | None = None  # Path
     dev_src_path: Any | None = None  # Path
 

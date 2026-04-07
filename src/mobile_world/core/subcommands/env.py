@@ -153,7 +153,12 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
     launch_parser.add_argument(
         "--vnc",
         action="store_true",
-        help="Enable VNC support with GUI (accessible via VNC port)",
+        help="[Legacy alias for --viewer] Enable web-scrcpy viewer",
+    )
+    launch_parser.add_argument(
+        "--viewer",
+        action="store_true",
+        help="Enable web-scrcpy viewer (accessible via viewer port)",
     )
     launch_parser.add_argument(
         "--dry-run",
@@ -463,6 +468,7 @@ def _launch_containers(args: argparse.Namespace) -> None:
             image=args.image,
             dev_mode=args.dev,
             enable_vnc=args.vnc or args.dev,
+            enable_viewer=getattr(args, 'viewer', False) or args.vnc,
             env_file_path=env_file_path,
             dev_src_path=dev_src_path,
         )
@@ -504,6 +510,8 @@ def _launch_containers(args: argparse.Namespace) -> None:
             envs: dict[str, str] = {}
             if config.enable_vnc or config.dev_mode:
                 envs["ENABLE_VNC"] = "true"
+            if config.enable_viewer:
+                envs["ENABLE_VIEWER"] = "true"
 
             volumes: list[tuple[str, str]] = []
             if config.dev_src_path:
