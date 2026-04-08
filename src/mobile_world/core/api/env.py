@@ -58,26 +58,23 @@ def is_port_available(port: int, host: str = "0.0.0.0") -> bool:
 def find_available_ports(
     backend_start: int = 6800,
     viewer_start: int = 7860,
-    vnc_start: int = 5800,
     adb_start: int = 5556,
     count: int = 1,
-) -> list[tuple[int, int, int, int]]:
+) -> list[tuple[int, int, int]]:
     """Find available port sets for containers.
 
     Args:
         backend_start: Starting port for backend
-        viewer_start: Starting port for viewer
-        vnc_start: Starting port for VNC
+        viewer_start: Starting port for web-scrcpy viewer
         adb_start: Starting port for ADB
         count: Number of port sets to find
 
     Returns:
-        List of tuples: (backend_port, viewer_port, vnc_port, adb_port)
+        List of tuples: (backend_port, viewer_port, adb_port)
     """
     port_sets = []
     backend_current = backend_start
     viewer_current = viewer_start
-    vnc_current = vnc_start
     adb_current = adb_start
     max_attempts = count * 1000
 
@@ -86,14 +83,12 @@ def find_available_ports(
         if (
             is_port_available(backend_current)
             and is_port_available(viewer_current)
-            and is_port_available(vnc_current)
             and is_port_available(adb_current)
         ):
-            port_sets.append((backend_current, viewer_current, vnc_current, adb_current))
+            port_sets.append((backend_current, viewer_current, adb_current))
 
         backend_current += 1
         viewer_current += 1
-        vnc_current += 1
         adb_current += 1
         attempts += 1
 
@@ -171,10 +166,8 @@ def build_container_config(
     image: str = DEFAULT_IMAGE,
     backend_port: int = 6800,
     viewer_port: int = 7860,
-    vnc_port: int = 5800,
     adb_port: int = 5556,
     dev_mode: bool = False,
-    enable_vnc: bool = False,
     enable_viewer: bool = False,
     env_file_path: Path | None = None,
     dev_src_path: Path | None = None,
@@ -186,11 +179,9 @@ def build_container_config(
         name_prefix: Prefix for container name
         image: Docker image to use
         backend_port: Backend port
-        viewer_port: Viewer port
-        vnc_port: VNC port
+        viewer_port: Web-scrcpy viewer port
         adb_port: ADB port
         dev_mode: Enable dev mode
-        enable_vnc: Enable VNC
         enable_viewer: Enable web-scrcpy viewer
         env_file_path: Path to .env file
         dev_src_path: Path to src directory for dev mode
@@ -208,11 +199,9 @@ def build_container_config(
         name=container_name,
         backend_port=backend_port,
         viewer_port=viewer_port,
-        vnc_port=vnc_port,
         adb_port=adb_port,
         image=image,
         dev_mode=dev_mode,
-        enable_vnc=enable_vnc,
         enable_viewer=enable_viewer,
         env_file_path=env_file_path,
         dev_src_path=dev_src_path,
@@ -240,13 +229,13 @@ def launch_container(
         name=config.name,
         backend_port=config.backend_port,
         viewer_port=config.viewer_port,
-        vnc_port=config.vnc_port,
         adb_port=config.adb_port,
     )
 
     envs: dict[str, str] = {}
-    if config.enable_vnc or config.dev_mode:
-        envs["ENABLE_VNC"] = "true"
+    if config.dev_mode:
+        envs["DEV_MODE"] = "true"
+        envs["ENABLE_VIEWER"] = "true"  # dev mode implies the viewer
     if config.enable_viewer:
         envs["ENABLE_VIEWER"] = "true"
 
@@ -262,7 +251,6 @@ def launch_container(
         port_mappings=[
             (config.backend_port, 6800),
             (config.viewer_port, 7860),
-            (config.vnc_port, 5800),
             (config.adb_port, 5556),  # ADB port
         ],
         env_vars=envs,
@@ -300,10 +288,8 @@ def launch_containers(
     image: str = DEFAULT_IMAGE,
     backend_start_port: int = 6800,
     viewer_start_port: int = 7860,
-    vnc_start_port: int = 5800,
     adb_start_port: int = 5556,
     dev_mode: bool = False,
-    enable_vnc: bool = False,
     enable_viewer: bool = False,
     env_file_path: Path | None = None,
     dev_src_path: Path | None = None,
@@ -318,11 +304,9 @@ def launch_containers(
         name_prefix: Prefix for container names
         image: Docker image to use
         backend_start_port: Starting backend port
-        viewer_start_port: Starting viewer port
-        vnc_start_port: Starting VNC port
+        viewer_start_port: Starting web-scrcpy viewer port
         adb_start_port: Starting ADB port
         dev_mode: Enable dev mode (single container only)
-        enable_vnc: Enable VNC
         enable_viewer: Enable web-scrcpy viewer
         env_file_path: Path to .env file
         dev_src_path: Path to src directory for dev mode
@@ -339,7 +323,7 @@ def launch_containers(
     if dev_mode and count > 1:
         raise ValueError("Dev mode only supports launching a single container")
 
-    port_sets = find_available_ports(backend_start_port, viewer_start_port, vnc_start_port, adb_start_port, count)
+    port_sets = find_available_ports(backend_start_port, viewer_start_port, adb_start_port, count)
 
     if len(port_sets) < count:
         logger.warning(f"Could only find {len(port_sets)} available port sets out of {count}")
@@ -347,16 +331,14 @@ def launch_containers(
     start_index = find_next_container_index(name_prefix, dev_mode)
     results = []
 
-    for i, (backend, viewer, vnc, adb) in enumerate(port_sets):
+    for i, (backend, viewer, adb) in enumerate(port_sets):
         config = ContainerConfig(
             name=f"{name_prefix}_{start_index + i}{'_dev' if dev_mode else ''}",
             backend_port=backend,
             viewer_port=viewer,
-            vnc_port=vnc,
             adb_port=adb,
             image=image,
             dev_mode=dev_mode,
-            enable_vnc=enable_vnc,
             enable_viewer=enable_viewer,
             env_file_path=env_file_path,
             dev_src_path=dev_src_path,
@@ -402,7 +384,7 @@ def list_containers(
         ports_info = container.get("Ports", "")
         backend_port = None
         viewer_port = None
-        vnc_port = None
+        adb_port = None
 
         if ports_info:
             for port_mapping in ports_info.split(", "):
@@ -415,8 +397,8 @@ def list_containers(
                             backend_port = host_port
                         elif container_port_num == "7860":
                             viewer_port = host_port
-                        elif container_port_num == "5800":
-                            vnc_port = host_port
+                        elif container_port_num == "5556":
+                            adb_port = host_port
                     except ValueError:
                         pass
 
@@ -427,7 +409,7 @@ def list_containers(
                 running="Up" in container.get("Status", ""),
                 backend_port=backend_port,
                 viewer_port=viewer_port,
-                vnc_port=vnc_port,
+                adb_port=adb_port,
             )
         )
 
@@ -453,7 +435,6 @@ def get_container_info(container_name: str) -> ContainerInfo | None:
 
     backend_port = None
     viewer_port = None
-    vnc_port = None
     adb_port = None
 
     ports = network.get("Ports", {})
@@ -466,8 +447,6 @@ def get_container_info(container_name: str) -> ContainerInfo | None:
                     backend_port = host_port
                 elif container_port_num == "7860":
                     viewer_port = host_port
-                elif container_port_num == "5800":
-                    vnc_port = host_port
                 elif container_port_num == "5556":
                     adb_port = host_port
             except (ValueError, IndexError):
@@ -481,7 +460,6 @@ def get_container_info(container_name: str) -> ContainerInfo | None:
         image=container_data.get("Config", {}).get("Image"),
         backend_port=backend_port,
         viewer_port=viewer_port,
-        vnc_port=vnc_port,
         adb_port=adb_port,
     )
 

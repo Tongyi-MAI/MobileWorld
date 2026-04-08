@@ -4,6 +4,7 @@ import contextlib
 import re
 import subprocess
 import tempfile
+import time
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -333,43 +334,205 @@ class EnvAdapter:
         """Push a file from local filesystem to the device."""
         self._controller.push_file(local_path, remote_path)
 
-    def get_state(self) -> State:
-        """Get current UI state with elements parsed from UIAutomator XML.
+    def _try_uiautomator_dump(self) -> tuple[list, str | None]:
+        """Attempt a UIAutomator XML dump. Returns (ui_elements, xml_string).
 
-        Calls controller.get_xml() to dump the UI hierarchy, reads the XML file,
-        and uses AndroidWorld's xml_dump_to_ui_elements() to parse it into
-        UIElement objects.
+        Returns ([], None) on failure. Does NOT log at error level unless the
+        XML file path is completely missing.
         """
         self._xml_counter += 1
         prefix = f"aw_state_{self._xml_counter}"
-
         result = self._controller.get_xml(prefix, self._temp_dir)
-
-        # get_xml returns a file path string on success, AdbResponse on failure
         if isinstance(result, AdbResponse):
-            logger.warning("Failed to get UI XML for get_state()")
-            return State(ui_elements=[])
-
+            return [], None
         xml_path = Path(result)
         if not xml_path.exists():
-            logger.warning(f"XML file not found at {xml_path}")
-            return State(ui_elements=[])
-
+            return [], None
         try:
             xml_content = xml_path.read_text(encoding="utf-8", errors="ignore")
-            # Use AndroidWorld's own XML parser
             from android_world.env import representation_utils
             ui_elements = representation_utils.xml_dump_to_ui_elements(xml_content)
-            return State(ui_elements=ui_elements)
-        except ImportError:
-            logger.error(
-                "Could not import android_world.env.representation_utils. "
-                "Ensure android_world is installed."
-            )
-            return State(ui_elements=[])
+            return ui_elements, xml_content
         except Exception as e:
-            logger.error(f"Failed to parse UI XML: {e}")
-            return State(ui_elements=[])
+            logger.debug(f"UIAutomator parse failed: {e}")
+            return [], None
+
+    def _get_current_focus_package(self) -> str | None:
+        """Return the package name of the currently-focused window via dumpsys.
+
+        Falls back to mFocusedApp if mCurrentFocus is a transient error dialog.
+        """
+        result = execute_adb(
+            f"adb -s {self._controller.device} shell dumpsys window"
+            " | grep -E 'mCurrentFocus|mFocusedApp'"
+        )
+        if not result.success or not result.output:
+            return None
+        # Prefer mFocusedApp (the real activity) over mCurrentFocus (which
+        # may be transiently holding an Application Error / ANR dialog).
+        lines = result.output.splitlines()
+        focused_line = next((l for l in lines if "mFocusedApp" in l), None)
+        curfocus_line = next((l for l in lines if "mCurrentFocus" in l), None)
+
+        for line in [focused_line, curfocus_line]:
+            if not line:
+                continue
+            m = re.search(r"u0\s+([\w\.]+)/", line)
+            if m and m.group(1) != "null":
+                return m.group(1)
+        return None
+
+    def _a11y_forest_matches_package(self, forest, package: str) -> bool:
+        """Check if a11y forest contains a window with nodes from `package`."""
+        if forest is None or not package:
+            return False
+        for w in forest.windows:
+            if not w.HasField('tree'):
+                continue
+            for n in w.tree.nodes:
+                if n.package_name == package:
+                    return True
+        return False
+
+    def get_state(self) -> State:
+        """Get current UI state.
+
+        Strategy:
+          1. Dismiss the AccessibilityForwarder crash dialog if it's in
+             front (known Pixel_8_API_34 APK bug — the forwarder's polling
+             thread can throw NPE in getWindows()).
+          2. Prefer the A11y gRPC forest because UIAutomator's `dump`
+             command fails on animating screens (e.g. running stopwatch).
+             Use a smart forest picker that prefers snapshots with a large
+             full-screen non-system window (real foreground app), not a
+             transient popup or empty buffer.
+          3. Fall back to UIAutomator only if a11y is unusable. Note that
+             UIAutomator implicitly displaces the forwarder's service,
+             which crashes its polling thread; we request a restart after
+             every UIAutomator call.
+
+        Always returns a non-None forest — some AW evaluators call
+        forest_to_ui_elements(state.forest) directly and crash on None.
+        """
+        from mobile_world.runtime.a11y_grpc_manager import get_manager
+        mgr = get_manager()
+        empty_forest = mgr.empty_forest()
+
+        focus_package = self._get_current_focus_package()
+        logger.debug(f"get_state: focus_package={focus_package}")
+
+        # Dismiss forwarder crash dialog if present (Pixel_8_API_34 bug).
+        # This dialog appears when the forwarder's polling thread throws
+        # a NullPointerException in getWindows(). It covers the app, which
+        # prevents us from seeing the real UI state.
+        if focus_package == "com.google.androidenv.accessibilityforwarder":
+            logger.warning(
+                "get_state: AccessibilityForwarder crash dialog is focused;"
+                " dismissing + re-enabling service"
+            )
+            device = self._controller.device
+            execute_adb(
+                f"adb -s {device} shell am force-stop"
+                " com.google.androidenv.accessibilityforwarder"
+            )
+            time.sleep(0.5)
+            # Re-enable the accessibility service so the forwarder can
+            # resume capturing window state. Android re-binds it on demand
+            # when the secure setting is refreshed.
+            execute_adb(
+                f"adb -s {device} shell settings put secure"
+                " enabled_accessibility_services"
+                " com.google.androidenv.accessibilityforwarder/"
+                "com.google.androidenv.accessibilityforwarder."
+                "AccessibilityForwarder"
+            )
+            execute_adb(
+                f"adb -s {device} shell settings put secure"
+                " accessibility_enabled 1"
+            )
+            # Re-configure the forwarder's target port via broadcast.
+            from mobile_world.runtime.a11y_grpc_manager import get_manager as _gm
+            port = _gm().port
+            if port:
+                execute_adb(
+                    f"adb -s {device} shell am broadcast"
+                    " -a accessibility_forwarder.intent.action.SET_GRPC"
+                    f" --ei port {port}"
+                    " -n com.google.androidenv.accessibilityforwarder/"
+                    "com.google.androidenv.accessibilityforwarder."
+                    "FlagsBroadcastReceiver"
+                )
+                execute_adb(
+                    f"adb -s {device} shell am broadcast"
+                    " -a accessibility_forwarder.intent.action.ENABLE_GRPC"
+                    " -n com.google.androidenv.accessibilityforwarder/"
+                    "com.google.androidenv.accessibilityforwarder."
+                    "FlagsBroadcastReceiver"
+                )
+                execute_adb(
+                    f"adb -s {device} shell am broadcast"
+                    " -a accessibility_forwarder.intent.action."
+                    "ENABLE_ACCESSIBILITY_TREE_LOGS"
+                    " -n com.google.androidenv.accessibilityforwarder/"
+                    "com.google.androidenv.accessibilityforwarder."
+                    "FlagsBroadcastReceiver"
+                )
+            time.sleep(2.5)  # allow forwarder to reconnect + push a few forests
+            focus_package = self._get_current_focus_package()
+            logger.debug(f"get_state: post-dismiss focus_package={focus_package}")
+
+        # --- Primary: A11y gRPC forest ---
+        a11y_elements: list = []
+        a11y_forest = None
+        if mgr.is_running:
+            a11y_elements, a11y_forest = mgr.get_ui_elements_and_forest()
+
+        # Decide if the a11y forest is "good" — i.e. contains at least one
+        # non-system window that covers most of the screen (a real app
+        # window, not a popup).  Popups reported by the AW forwarder have
+        # bounds like (534,279,1049,961) which is ~515x682, well under the
+        # Pixel 8's 1080x2400.
+        a11y_is_good = False
+        if a11y_forest is not None:
+            for w in a11y_forest.windows:
+                wtype = getattr(w, 'window_type', 0)
+                if wtype == 3:  # TYPE_SYSTEM (status/nav bar)
+                    continue
+                bbox = w.bounds_in_screen if w.HasField('bounds_in_screen') else None
+                if bbox is None:
+                    continue
+                width = bbox.right - bbox.left
+                height = bbox.bottom - bbox.top
+                if width >= 900 and height >= 1800:
+                    a11y_is_good = True
+                    break
+
+        logger.debug(
+            f"get_state: a11y_is_good={a11y_is_good}, "
+            f"a11y_n_elements={len(a11y_elements)}, "
+            f"a11y_n_windows={len(a11y_forest.windows) if a11y_forest else 0}"
+        )
+
+        if a11y_is_good and a11y_elements:
+            return State(ui_elements=a11y_elements, forest=a11y_forest or empty_forest)
+
+        # --- Fallback: UIAutomator dump ---
+        logger.debug("get_state: falling back to UIAutomator dump")
+        ui_elements, xml_content = self._try_uiautomator_dump()
+        logger.debug(f"get_state: UIAutomator returned {len(ui_elements)} elements")
+        if ui_elements:
+            # UIAutomator displaces the forwarder service, crashing its
+            # polling thread. Tell the manager it needs a restart next time.
+            mgr.mark_for_restart()
+            return State(ui_elements=ui_elements, forest=a11y_forest or empty_forest)
+
+        # --- Last resort: whatever a11y gave us (even if thin) ---
+        if a11y_elements:
+            logger.debug("get_state: last-resort using thin a11y elements")
+            return State(ui_elements=a11y_elements, forest=a11y_forest or empty_forest)
+
+        logger.warning("Both A11y and UIAutomator returned empty state")
+        return State(ui_elements=[], forest=empty_forest)
 
     def close_app(self, package_name: str) -> None:
         """Force-stop an app by package name."""

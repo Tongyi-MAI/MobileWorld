@@ -272,6 +272,20 @@ def setup_clipper():
     force_stop(pkg)
 
 
+def setup_accessibility_forwarder():
+    """Install the A11y forwarder APK and enable the accessibility service."""
+    pkg = "com.google.androidenv.accessibilityforwarder"
+    installed = get_installed_packages()
+    if pkg not in installed:
+        print("  Installing accessibility_forwarder.apk...")
+        adb("install", "-r", "/app/docker/apks/accessibility_forwarder.apk")
+    # Enable the accessibility service
+    adb("shell", "settings", "put", "secure", "enabled_accessibility_services",
+        f"{pkg}/{pkg}.AccessibilityForwarder")
+    time.sleep(2)
+    print("  Accessibility forwarder installed and enabled")
+
+
 def setup_simple_calendar_pro():
     """Simple Calendar Pro: launch/close, grant calendar+notification perms."""
     pkg = "com.simplemobiletools.calendar.pro"
@@ -577,6 +591,7 @@ SETUP_FUNCTIONS = {
     "markor": setup_markor,
     "android world": setup_android_world,
     "clipper": setup_clipper,
+    "accessibility forwarder": setup_accessibility_forwarder,
     "simple calendar pro": setup_simple_calendar_pro,
     "tasks": setup_tasks,
     "simple draw pro": setup_simple_draw_pro,
@@ -671,9 +686,14 @@ def main():
     print("=" * 60)
     setup_results = {}
 
+    # Apps that handle their own APK installation in their setup function
+    # (not installed via aw_app_classes in Phase 2)
+    self_installing_apps = {"clipper", "accessibility forwarder"}
+
     for app_name, setup_fn in SETUP_FUNCTIONS.items():
-        # Skip if the package isn't installed (for third-party apps)
-        if app_name in THIRD_PARTY_PACKAGES:
+        # Skip if the package isn't installed (for third-party apps),
+        # unless the app handles its own installation.
+        if app_name in THIRD_PARTY_PACKAGES and app_name not in self_installing_apps:
             pkg = THIRD_PARTY_PACKAGES[app_name]
             if pkg not in installed:
                 print(f"\n[SKIP] {app_name} - package not installed")

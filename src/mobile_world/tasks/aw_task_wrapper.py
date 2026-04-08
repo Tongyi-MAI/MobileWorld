@@ -111,9 +111,23 @@ class AWTaskWrapper(BaseTask):
         # Enable Chrome renderer accessibility so UIAutomator can see WebView
         # content (needed for browser task evaluation)
         execute_adb(f'{adb} shell "echo chrome --force-renderer-accessibility > /data/local/tmp/chrome-command-line"')
+        # Disable gallery apps to avoid confusing the agent — AW tasks use
+        # Simple Gallery Pro, but other gallery apps have similar icons.
+        execute_adb(f"{adb} shell pm disable-user --user 0 com.google.android.apps.photos")
+        execute_adb(f"{adb} shell pm disable-user --user 0 gallery.photomanager.picturegalleryapp.imagegallery")
+
+        # Set up A11y gRPC forwarder for robust UI state access.
+        # Unlike UIAutomator dump, the AccessibilityService works even when
+        # the screen is animating (e.g. running stopwatch/timer).
+        from mobile_world.runtime.a11y_grpc_manager import get_manager
+        a11y_mgr = get_manager()
+        if not a11y_mgr.is_running:
+            a11y_mgr.start_server()
 
         # Create adapter and delegate to AndroidWorld's initialization
         self._env_adapter = EnvAdapter(controller)
+        # Set up the a11y forwarder on the device (install + enable + configure)
+        a11y_mgr.setup_device(self._env_adapter.controller)
         try:
             logger.info(f"Initializing AndroidWorld task: {self.name}")
             self._task_eval.initialize_task(self._env_adapter)

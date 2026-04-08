@@ -42,6 +42,34 @@ While maintaining the same level of rigorous, reproducible evaluation as Android
 </p>
 
 ## 📢 Updates
+- **2026-04-08: AndroidWorld Integration (Experimental) 🧪**
+    MobileWorld now supports evaluating [AndroidWorld](https://github.com/google-research/android_world) tasks alongside its own benchmark suite, sharing a **unified AVD** (Pixel 8 / API 34) so you can switch between suites without restarting the emulator.
+    * 🧩 **Unified AVD:** both suites run on the same `Pixel_8_API_34_x86_64` image; no second emulator is installed, keeping the container slim (~22 GB).
+    * 📦 **New image tag:** `ghcr.io/tongyi-mai/mobile_world:plus-aw-latest` ships with all 24 AndroidWorld apps pre-installed and the `aw_init_state` snapshot baked in.
+    * ⚙️ **Evaluation parity:** uses the official AndroidWorld `TaskEval` code (via the `resources/android_world/` submodule) with a MobileWorld adapter layer; includes fixes for a few upstream evaluator bugs and swiftshader-GPU compatibility patches.
+    * ♿ **A11y gRPC support:** UI state is read through Google's AccessibilityForwarder (same mechanism as official AndroidWorld), so tasks like `ClockStopWatchRunning` that rely on animating screens work reliably.
+    * 🚧 **Experimental:** Results may differ from the official AndroidWorld numbers due to the API 33 → 34 upgrade and GPU backend differences. See [docs/android_world_integration.md](docs/android_world_integration.md) for the full integration notes, known issues, and parity caveats.
+    * **Quick start:**
+        ```bash
+        # Launch AndroidWorld-enabled containers
+        uv run mw env run --count 5 --prefix aw_test \
+            --image ghcr.io/tongyi-mai/mobile_world:plus-aw-latest
+
+        # Run all 91 AndroidWorld tasks
+        uv run mw eval \
+            --agent_type seed_agent \
+            --tasks ALL \
+            --suite-family android_world \
+            --seed 42 \
+            --max_round 50 \
+            --model_name <your_model> \
+            --llm_base_url <openai_compatible_url> \
+            --env-prefix aw_test \
+            --env-image ghcr.io/tongyi-mai/mobile_world:plus-aw-latest \
+            --max-concurrency 5 \
+            --log_file_root traj_logs/aw_run
+        ```
+        The `--suite-family android_world` flag selects the AndroidWorld suite; `--seed 42` pins the per-task random parameters for reproducibility. Specific tasks can be selected with `--tasks MarkorCreateNote,SimpleSmsSend,...`.
 - **2026-03-20: End-to-End Frontier Model Evaluation & Real Device Support🔥**
     We benchmarked five frontier models — **Seed-2.0-Pro**, **Gemini 3 Pro**, **KIMI K2.5**, **Claude Sonnet 4.5**, and **Qwen-3.5** — for end-to-end mobile-use, and demonstrated real-phone execution. See our [blog post](https://tongyi-mai.github.io/MAI-UI-blog/MobileWorld-Blog-Post) for the full write-up.
     * 🏆 **New SOTA:** **Seed-2.0-Pro** leads at **63.2%** GUI-Only and **61.4%** User-Interaction, overtaking Seed-1.8 as the top end-to-end model.
@@ -356,12 +384,13 @@ Use `mw <command> --help` for detailed options.
 
 For detailed documentation, see the `docs/` directory:
 
-| Document                                   | Description                                         |
-|--------------------------------------------|-----------------------------------------------------|
-| [Development Guide](docs/development.md)   | Dev mode, debugging, container management workflows |
-| [MCP Setup](docs/mcp_setup.md)             | Configure MCP servers for external tool integration |
-| [Windows Setup](docs/setup_for_windows.md) | WSL2 and KVM setup instructions for Windows         |
-| [AVD Configuration](docs/configure_avd.md) | Customize and save Android Virtual Device snapshots |
+| Document                                                        | Description                                                        |
+|-----------------------------------------------------------------|--------------------------------------------------------------------|
+| [Development Guide](docs/development.md)                        | Dev mode, debugging, container management workflows                |
+| [MCP Setup](docs/mcp_setup.md)                                  | Configure MCP servers for external tool integration                |
+| [Windows Setup](docs/setup_for_windows.md)                      | WSL2 and KVM setup instructions for Windows                        |
+| [AVD Configuration](docs/configure_avd.md)                      | Customize and save Android Virtual Device snapshots                |
+| [AndroidWorld Integration](docs/android_world_integration.md)   | Run AndroidWorld tasks on the shared AVD (experimental)            |
 
 ---
 

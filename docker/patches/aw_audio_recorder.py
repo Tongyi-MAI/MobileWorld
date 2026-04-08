@@ -120,6 +120,15 @@ class AudioRecorderRecordAudioWithFileName(_AudioRecorder):
     exists = file_utils.check_file_or_folder_exists(
         check_name, self.create_file_task.data_directory, env.controller
     )
+    if not exists and check_name.endswith(".m4a"):
+      # The Audio Recorder rename dialog takes the base name (no extension)
+      # and appends .m4a automatically. If the agent typed the name WITH the
+      # extension, the actual file on disk has a double extension (.m4a.m4a).
+      # Accept this as correct since the agent's intent was right.
+      double_ext = check_name + ".m4a"
+      exists = file_utils.check_file_or_folder_exists(
+          double_ext, self.create_file_task.data_directory, env.controller
+      )
     if not exists:
       logging.info("%s not found", file_name)
       return 0.0

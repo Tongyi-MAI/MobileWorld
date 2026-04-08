@@ -60,9 +60,7 @@ COPY docker/${AVD_NAME}.ini /root/.android/avd/${AVD_NAME}.ini
 
 COPY docker/skins /root/.android/avd/skins
 COPY docker/adbkey docker/adbkey.pub /root/.android/
-COPY docker/start_novnc.sh /app/docker/start_novnc.sh
 COPY docker/start_emulator.sh /app/docker/start_emulator.sh
-RUN chmod +x /app/docker/start_novnc.sh
 RUN chmod +x /app/docker/start_emulator.sh
 COPY src /app/service/src
 COPY README.md /app/service/README.md

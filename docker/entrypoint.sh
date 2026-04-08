@@ -13,9 +13,7 @@ for f in *.tar; do docker load -i "$f"; done
 cd /app/service
 
 
-# ENABLE_VNC is a legacy alias for ENABLE_VIEWER (VNC stack has been replaced by web-scrcpy)
-if [ "${ENABLE_VNC:-false}" = "true" ] || [ "${ENABLE_VNC:-false}" = "1" ] || \
-   [ "${ENABLE_VIEWER:-false}" = "true" ] || [ "${ENABLE_VIEWER:-false}" = "1" ]; then
+if [ "${ENABLE_VIEWER:-false}" = "true" ] || [ "${ENABLE_VIEWER:-false}" = "1" ]; then
     # web-scrcpy viewer: WebSocket ADB proxy + static frontend on port 7860
     python3 /app/docker/ws_adb_proxy.py \
         --adb-port 5555 --port 7860 --static /app/web-scrcpy \
@@ -23,7 +21,7 @@ if [ "${ENABLE_VNC:-false}" = "true" ] || [ "${ENABLE_VNC:-false}" = "1" ] || \
 fi
 
 # Dev mode: sync extra deps and re-install AndroidWorld
-if [ "${ENABLE_VNC:-false}" = "true" ] || [ "${ENABLE_VNC:-false}" = "1" ]; then
+if [ "${DEV_MODE:-false}" = "true" ] || [ "${DEV_MODE:-false}" = "1" ]; then
     uv sync --extra dev --no-cache
     if [ -d /app/service/resources/android_world ]; then
         cd /app/service/resources/android_world && \

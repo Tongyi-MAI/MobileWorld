@@ -498,7 +498,6 @@ class ContainerInfo(BaseModel):
     image: str | None = None
     backend_port: int | None = None
     viewer_port: int | None = None
-    vnc_port: int | None = None
     adb_port: int | None = None
 
 
@@ -508,11 +507,9 @@ class ContainerConfig(BaseModel):
     name: str
     backend_port: int
     viewer_port: int
-    vnc_port: int
     adb_port: int = 5556
     image: str = DEFAULT_IMAGE
     dev_mode: bool = False
-    enable_vnc: bool = False
     enable_viewer: bool = False
     env_file_path: Any | None = None  # Path
     dev_src_path: Any | None = None  # Path
@@ -525,7 +522,6 @@ class LaunchResult(BaseModel):
     backend_port: int
     viewer_port: int
     adb_port: int
-    vnc_port: int
     success: bool = False
     ready: bool = False
     error_message: str | None = None

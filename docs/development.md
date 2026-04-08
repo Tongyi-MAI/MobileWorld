@@ -18,7 +18,7 @@ This will:
 - Mount your local `src/` directory to `/app/service/src` in the container (Otherwise you can use `--mount-src` without `dev` mode)
 - Allow you to edit code locally and have changes reflected immediately in the container
 - Enable live development without rebuilding the Docker image
-- Automatically enable VNC for visual debugging (accessible via VNC port)
+- Automatically enable the web-scrcpy viewer for visual debugging (accessible via the viewer port)
 
 **Note:** Dev mode only supports launching a single container. If you need multiple containers, launch them separately without dev mode.
 
@@ -130,8 +130,8 @@ uv run mobile-world server --port 6800 &
 
 Key endpoints:
 - **Backend API**: `http://localhost:6800`
-- **Device Viewer**: `http://localhost:7860`
-- **VNC**: `http://localhost:5800` (when `ENABLE_VNC=true`)
+- **Device Viewer** (web-scrcpy): `http://localhost:7860` (when `ENABLE_VIEWER=true`)
+- **ADB**: `localhost:5556`
 
 The server provides:
 - FastAPI backend for device control
@@ -141,14 +141,14 @@ The server provides:
 ## Port Allocation
 
 Containers use three ports per instance:
-- **Backend port**: Base port (e.g., 6800)
-- **Viewer port**: Base + 1060 (e.g., 7860)
-- **VNC port**: Base - 1000 (e.g., 5800)
+- **Backend port**: Starts at 6800 (`--backend-start-port`)
+- **Viewer port**: Starts at 7860 (`--viewer-start-port`)
+- **ADB port**: Starts at 5556 (`--adb-start-port`)
 
-When launching multiple containers, they are spaced 100 ports apart:
-- Container 0: 6800, 7860, 5800
-- Container 1: 6900, 7960, 5900
-- Container 2: 7000, 8060, 6000
+When launching multiple containers, each port increments by 2 until a free
+triple is found. For example:
+- Container 0: backend 6800, viewer 7860, adb 5556
+- Container 1: backend 6802, viewer 7862, adb 5558
 
 ## Troubleshooting
 
@@ -185,14 +185,14 @@ newgrp docker
 
 ## Advanced Usage
 
-### Enable VNC Without Dev Mode
+### Enable the Web-scrcpy Viewer Without Dev Mode
 
-You can enable VNC support on regular (non-dev) containers:
+You can enable the web-scrcpy viewer on regular (non-dev) containers:
 ```bash
-mobile-world env run --vnc --count 2
+mobile-world env run --viewer --count 2
 ```
 
-**Note:** VNC is automatically enabled when using `--dev` mode.
+**Note:** The viewer is automatically enabled when using `--dev` mode.
 
 ### Custom Image
 
@@ -227,5 +227,5 @@ uv run python src/mobile_world/tasks/test_task.py --task xxx --question "xxxx"
 ```
 
 The `--task` flag specifies the task name, while `--question` is an optional argument that provides a clarification question for agent-user interaction tasks.  
-This command initializes the task environment, after which you can interact with the GUI via VNC to complete the task manually.
+This command initializes the task environment, after which you can interact with the GUI via the web-scrcpy viewer to complete the task manually.
 

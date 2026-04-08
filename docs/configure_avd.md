@@ -3,7 +3,7 @@ Tutorial on how to configure the AVD in Android Studio.
 1. Make sure you are within the `mobile_world` repo directory and run `sudo mobile-world env run --image mobile_world:v1.1 --dev` will launch a dev container with the existing AVD image. This dev container will have your local `src` mounted to `/app/service/src`.
 2. Run `sudo mobile-world env exec mobile_world_env_0_dev` to enter the dev container.
 3. Run `adb emu avd snapshot load init_state` to load the initial snapshot of the AVD.
-4. Go to the VNC page (you will see the address to this page at step 1) to see the interactive Android Emulator.
+4. Open the web-scrcpy viewer (`http://localhost:<viewer_port>`, shown in the launch output from step 1) to see the interactive Android Emulator.
 5. Manually configure the environment (e.g., install apps, push new files, etc.).
 6. Once you are done:
     - first run `adb shell su root date 101612002025.00` to set the date to our fixed date (2025-10-16 12:00:00).

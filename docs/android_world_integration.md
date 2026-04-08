@@ -64,6 +64,18 @@ The patch also adds a **logcat-based success check** as fallback. UIAutomator ca
 
 The upstream evaluator appends `.m4a` to `file_name`, but `generate_random_params()` already produces filenames with the `.m4a` extension (e.g., `"2023_05_21_debate.m4a"`). This causes the evaluator to look for `"2023_05_21_debate.m4a.m4a"`. The patch checks if the extension is already present before appending.
 
+### Expense Evaluator Fix (`docker/patches/aw_expense.py`)
+
+`ExpenseAddMultipleFromMarkor.initialize_task()` appends ". Reimbursable." to target notes when writing them to the Markor file, but never updates `params[ROW_OBJECTS]`. This causes `is_successful()` to compare the agent's correctly-entered notes (e.g., "Urgent. Reimbursable.") against the unmodified originals (e.g., "Urgent"), failing the 0.9 fuzzy-match threshold. The patch updates `params[ROW_OBJECTS]` after creating the modified targets.
+
+### Actuation Race Fix (`docker/patches/aw_actuation.py`)
+
+`find_and_click_element()` in upstream `actuation.py` calls `env.get_ui_elements()` **twice**: once inside `_wait_and_find_click_element()` to locate the target element by index, and again immediately after to pass a fresh list to `execute_adb_action()`. In upstream AndroidWorld this is usually safe because `get_ui_elements()` is backed by a stable A11y gRPC snapshot, but MobileWorld's `ControllerAdapter.get_ui_elements()` is backed by `uiautomator dump`, whose output is noticeably less stable: consecutive calls within milliseconds can return lists of very different sizes as the view tree settles. The old index then refers off the end of the new list, and AW's `execute_adb_action()` raises `Invalid element index: 38, must be between 0 and 11.`
+
+This affects any task whose `initialize_task()` uses `tools.AndroidToolController.send_sms()` or `contacts_utils.add_contact()` — both call `find_and_click_element()` against the SMS compose / contacts-save UI, which is still animating on Pixel 8 / API 34. The net effect in full-suite runs is that `SimpleSmsResend`, `SimpleSmsSendReceivedAddress`, and any other tasks that touch contact-save during init intermittently fail to initialize.
+
+The patch makes `_wait_and_find_click_element()` return `(action, ui_elements)` and rewrites `find_and_click_element()` to reuse that list instead of re-fetching, so the index and list stay consistent. This is a pure ordering change — no behavior change when the list happens to be stable.
+
 ### Clipper APK Rebuild (`docker/apks/clipper.apk`)
 
 The original Clipper app ([majido/clipper](https://github.com/majido/clipper)) targets SDK 0, which is rejected by API 34 (`INSTALL_FAILED_DEPRECATED_SDK_VERSION`). The Clipper submodule is at `resources/clipper/` and patches in `docker/patches/clipper_*.{java,xml}` modernize it for SDK 34:
@@ -91,6 +103,7 @@ Key adaptations in `src/mobile_world/runtime/aw_env_adapter.py`:
 - **List-based subprocess**: All generic ADB commands use `subprocess.run(list)` instead of shell strings to handle multiline scripts and paths with spaces
 - **pull_file yields a directory**: AndroidWorld expects `pull_file()` to return a temp directory path (not a file path), with the caller constructing the full path
 - **push_file clears then copies**: Matches AndroidWorld's pattern of clearing the remote directory before pushing
+- **A11y gRPC primary, UIAutomator fallback**: `get_state()` first checks the AccessibilityForwarder gRPC service for UI elements (works even during animations like running stopwatch/timer). Falls back to `uiautomator dump` if the gRPC service isn't available. The A11y forwarder APK (`docker/apks/accessibility_forwarder.apk`) is installed and configured in `AWTaskWrapper.initialize_task()`
 
 ## Task Wrapper
 
@@ -102,7 +115,10 @@ Key adaptations in `src/mobile_world/runtime/aw_env_adapter.py`:
 - **Runtime emulator fixes** applied after snapshot load:
   - `screen_off_timeout` set to max — prevents screen sleep during evaluation, which causes UIAutomator dumps to fail (fixes Clock stopwatch tasks)
   - Revokes `READ_CALENDAR`/`WRITE_CALENDAR` from Simple Calendar Pro — forces app to use its internal SQLite DB (which the evaluator reads) instead of the system CalendarProvider (fixes all 8 calendar tasks)
+  - Disables Fossify Calendar — avoids agent clicking the wrong calendar app (green "Calendar" icon conflicts with Simple Calendar Pro)
   - Clears logcat buffer — prevents stale browser success markers from previous tasks
+  - Disables stock Gallery (Google Photos) — avoids confusion with Simple Gallery Pro used by AW tasks
+  - Sets up A11y gRPC forwarder — installs and configures AccessibilityForwarder for robust UI state access during evaluation
 
 `AWTaskRegistry` (`src/mobile_world/tasks/aw_registry.py`) discovers all AndroidWorld tasks and wraps them.
 

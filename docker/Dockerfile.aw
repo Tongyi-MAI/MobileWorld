@@ -70,9 +70,8 @@ COPY docker/${AVD_NAME}.ini /root/.android/avd/${AVD_NAME}.ini
 
 COPY docker/skins /root/.android/avd/skins
 COPY docker/adbkey docker/adbkey.pub /root/.android/
-COPY docker/start_novnc.sh /app/docker/start_novnc.sh
 COPY docker/start_emulator.sh /app/docker/start_emulator.sh
-RUN chmod +x /app/docker/start_novnc.sh /app/docker/start_emulator.sh
+RUN chmod +x /app/docker/start_emulator.sh
 
 # web-scrcpy viewer (Apache 2.0 licensed, built from panda-web-scrcpy)
 COPY docker/web-scrcpy /app/web-scrcpy
@@ -87,9 +86,12 @@ COPY resources/android_world/ /app/service/resources/android_world/
 COPY docker/patches/aw_browser.py /app/service/resources/android_world/android_world/task_evals/single/browser.py
 COPY docker/patches/aw_audio_recorder.py /app/service/resources/android_world/android_world/task_evals/single/audio_recorder.py
 COPY docker/patches/aw_expense.py /app/service/resources/android_world/android_world/task_evals/single/expense.py
+COPY docker/patches/aw_actuation.py /app/service/resources/android_world/android_world/env/actuation.py
 
 # Patched Clipper APK (original targets SDK 0, incompatible with API 34)
 COPY docker/apks/clipper.apk /app/docker/apks/clipper.apk
+# A11y forwarder APK (AccessibilityService → gRPC, replaces UIAutomator dump)
+COPY docker/apks/accessibility_forwarder.apk /app/docker/apks/accessibility_forwarder.apk
 
 # Python dependencies — MobileWorld + AndroidWorld
 RUN cd /app/service && uv sync --no-cache && \
