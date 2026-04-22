@@ -51,7 +51,7 @@
                     <div class="buttons">
                         <a href="https://arxiv.org/abs/2512.19432" class="button is-small is-dark" target="_blank">
                             <span class="icon"><i class="ai ai-arxiv"></i></span>
-                            <span>Paper</span>
+                            <span>ACL 2026</span>
                         </a>
                         <a href="https://huggingface.co/datasets/Tongyi-MAI/MobileWorld" class="button is-small is-dark"
                             target="_blank">
@@ -76,14 +76,12 @@
                                 <div class="dropdown-content cite-dropdown-content">
                                     <div class="dropdown-item">
                                         <p class="is-size-7 has-text-weight-semibold mb-2">BibTeX</p>
-                                        <pre class="cite-bibtex"><code>@misc{kong2025mobileworldbenchmarkingautonomousmobile,
-      title={MobileWorld: Benchmarking Autonomous Mobile Agents in Agent-User Interactive, and MCP-Augmented Environments}, 
+                                        <pre class="cite-bibtex"><code>@inproceedings{kong2025mobileworld,
+      title={MobileWorld: Benchmarking Autonomous Mobile Agents in Agent-User Interactive, and MCP-Augmented Environments},
       author={Quyu Kong and Xu Zhang and Zhenyu Yang and Nolan Gao and Chen Liu and Panrong Tong and Chenglin Cai and Hanzhang Zhou and Jianan Zhang and Liangyu Chen and Zhidan Liu and Steven Hoi and Yue Wang},
-      year={2025},
-      eprint={2512.19432},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2512.19432}, 
+      booktitle={Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (ACL)},
+      year={2026},
+      url={https://arxiv.org/abs/2512.19432},
 }</code></pre>
                                         <button class="button is-small is-fullwidth mt-2" id="copy-cite-btn">
                                             <span class="icon"><i class="fas fa-copy"></i></span>
@@ -173,80 +171,30 @@
     <main class="container is-max-desktop">
         <!-- Leaderboard -->
         <section id="leaderboard" class="section">
-            <h2 class="title is-3 has-text-centered">Leaderboard</h2>
-            <div class="content has-text-justified">
-                <p>Success rate (%) on MobileWorld. We report overall SR (weighted by task counts) and breakdown by task category: GUI-Only tasks
-                    (117), agent-user interaction tasks (44), and MCP-augmented tasks (40). <strong>All results are
-                        evaluated with max steps = 50.</strong> Please <a
-                        href="mailto:kongquyu.kqy@alibaba-inc.com"><strong>contact us</strong></a> to submit your
-                    results.</p>
-            </div>
+            <h2 class="title is-3">Leaderboard</h2>
+            <p class="lb-desc">Success rate (%) on MobileWorld, weighted by task counts across GUI-Only (117), User-Interaction (44), and MCP (40) tasks. All results evaluated with max steps&nbsp;=&nbsp;50. <a
+                        href="mailto:kongquyu.kqy@alibaba-inc.com">Submit your results&nbsp;&rarr;</a></p>
 
             <!-- Filters -->
-            <div class="box leaderboard-filters">
-                <div class="columns is-mobile is-multiline is-vcentered is-variable is-3">
-                    <!-- <div class="column is-narrow">
-                        <span class="has-text-weight-semibold">Filters:</span>
-                    </div> -->
-                    <div class="column is-narrow">
-                        <div class="field">
-                            <label class="label is-small">Model Type:</label>
-                            <div class="control">
-                                <div class="select">
-                                    <select id="filter-model-type">
-                                        <option value="all">All</option>
-                                        <option value="Agentic Framework">Agentic Framework</option>
-                                        <option value="End-to-End Model">End-to-End Model</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="column is-narrow">
-                        <div class="field">
-                            <label class="label is-small">Task Categories:</label>
-                            <div class="control">
-                                <label class="checkbox mr-3">
-                                    <input type="checkbox" id="filter-gui-only" checked>
-                                    GUI-Only
-                                </label>
-                                <label class="checkbox mr-3">
-                                    <input type="checkbox" id="filter-user-int" checked>
-                                    User-Int.
-                                </label>
-                                <label class="checkbox">
-                                    <input type="checkbox" id="filter-mcp" checked>
-                                    MCP
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Max Steps filter hidden - currently all results use max steps = 50
-                    <div class="column is-narrow">
-                        <div class="field">
-                            <label class="label is-small">Max Steps:</label>
-                            <div class="control">
-                                <div class="select">
-                                    <select id="filter-steps">
-                                        <option value="all">All</option>
-                                        <option value="50">50</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    -->
-                    <div class="column is-narrow">
-                        <div class="field">
-                            <label class="label is-small">&nbsp;</label>
-                            <div class="control">
-                                <button class="button is-light" id="clear-filters">
-                                    Clear Filters
-                                </button>
-                            </div>
-                        </div>
+            <div class="lb-filters">
+                <div class="lb-filter-group">
+                    <span class="lb-filter-label">Type</span>
+                    <div class="lb-select-wrap">
+                        <select id="filter-model-type">
+                            <option value="all">All</option>
+                            <option value="Agentic Framework">Agentic</option>
+                            <option value="End-to-End Model">End-to-End</option>
+                        </select>
                     </div>
                 </div>
+                <span class="lb-filter-sep"></span>
+                <div class="lb-filter-group">
+                    <span class="lb-filter-label">Tasks</span>
+                    <label class="lb-chip"><input type="checkbox" id="filter-gui-only" checked><span>GUI-Only</span></label>
+                    <label class="lb-chip"><input type="checkbox" id="filter-user-int" checked><span>User-Int.</span></label>
+                    <label class="lb-chip"><input type="checkbox" id="filter-mcp" checked><span>MCP</span></label>
+                </div>
+                <button class="lb-clear" id="clear-filters">Reset</button>
             </div>
 
             <!-- Leaderboard Table -->
@@ -254,25 +202,24 @@
                 <table class="table is-fullwidth is-hoverable osworld-leaderboard-table">
                     <thead>
                         <tr>
-                            <th style="width: 60px;">Rank</th>
-                            <th style="width: 100px;">Category</th>
-                            <th style="width: 150px;">Model</th>
-                            <!-- <th style="width: 80px;" class="has-text-centered">Max Steps</th> -->
-                            <th id="th-overall" style="width: 100px;" class="has-text-centered sortable-header"
+                            <th style="width:42px;">#</th>
+                            <th style="width:80px;">Type</th>
+                            <th>Model</th>
+                            <th id="th-overall" class="has-text-centered sortable-header"
                                 data-sort="overall">
                                 Overall <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th id="th-gui-only" style="width: 100px;" class="has-text-centered sortable-header"
+                            <th id="th-gui-only" class="has-text-centered sortable-header"
                                 data-sort="gui_only">
                                 GUI-Only <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th id="th-user-int" style="width: 100px;" class="has-text-centered sortable-header"
+                            <th id="th-user-int" class="has-text-centered sortable-header"
                                 data-sort="user_int">
-                                User Interaction <i class="fas fa-sort sort-icon"></i>
+                                User-Int. <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th id="th-mcp" style="width: 100px;" class="has-text-centered sortable-header"
+                            <th id="th-mcp" class="has-text-centered sortable-header"
                                 data-sort="mcp">
-                                MCP-Augmented <i class="fas fa-sort sort-icon"></i>
+                                MCP <i class="fas fa-sort sort-icon"></i>
                             </th>
                         </tr>
                     </thead>
@@ -538,6 +485,39 @@
         </section>
     </main>
 
+    <!-- Detail Modal -->
+    <div class="modal" id="detail-modal">
+        <div class="modal-background"></div>
+        <div class="dm" role="dialog">
+            <button class="dm-close" aria-label="close" id="detail-modal-close">&times;</button>
+            <div class="dm-header" id="detail-modal-header"></div>
+            <div class="dm-body" id="detail-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Trajectory Viewer Modal -->
+    <div class="modal" id="traj-modal">
+        <div class="modal-background"></div>
+        <div class="traj-panel" role="dialog">
+            <button class="dm-close" aria-label="close" id="traj-modal-close">&times;</button>
+            <div class="traj-header">
+                <h2 class="traj-title" id="traj-model-name"></h2>
+                <div class="traj-controls">
+                    <div class="lb-select-wrap">
+                        <select id="traj-task-select"></select>
+                    </div>
+                    <span class="traj-result" id="traj-result-badge"></span>
+                </div>
+            </div>
+            <div class="traj-body" id="traj-body">
+                <div class="traj-loading" id="traj-loading">
+                    <i class="fas fa-spinner fa-spin"></i> Loading trajectories&hellip;
+                </div>
+                <div class="traj-steps" id="traj-steps"></div>
+            </div>
+        </div>
+    </div>
+
     <footer class="footer">
         <div class="content has-text-centered">
             <p>
@@ -723,10 +703,10 @@
                 if (filterUserInt.checked) overallCount += taskCounts['User-Int.'];
                 if (filterMcp.checked) overallCount += taskCounts['MCP'];
 
-                thOverall.innerHTML = `Overall<br><span class="task-count">(n=${overallCount})</span> <i class="fas fa-sort sort-icon"></i>`;
-                thGuiOnly.innerHTML = `GUI-Only<br><span class="task-count">(n=${taskCounts['GUI-Only']})</span> <i class="fas fa-sort sort-icon"></i>`;
-                thUserInt.innerHTML = `User-Int.<br><span class="task-count">(n=${taskCounts['User-Int.']})</span> <i class="fas fa-sort sort-icon"></i>`;
-                thMcp.innerHTML = `MCP<br><span class="task-count">(n=${taskCounts['MCP']})</span> <i class="fas fa-sort sort-icon"></i>`;
+                thOverall.innerHTML = `Overall <span class="task-count">(${overallCount})</span> <i class="fas fa-sort sort-icon"></i>`;
+                thGuiOnly.innerHTML = `GUI-Only <span class="task-count">(${taskCounts['GUI-Only']})</span> <i class="fas fa-sort sort-icon"></i>`;
+                thUserInt.innerHTML = `User-Int. <span class="task-count">(${taskCounts['User-Int.']})</span> <i class="fas fa-sort sort-icon"></i>`;
+                thMcp.innerHTML = `MCP <span class="task-count">(${taskCounts['MCP']})</span> <i class="fas fa-sort sort-icon"></i>`;
             }
 
             // Update column visibility in table header
@@ -862,7 +842,11 @@
                             <td class="has-text-centered"><strong>${rank}</strong></td>
                             <td><span class="category-badge ${categoryClass}">${categoryLabel}</span></td>
                             <td class="model-cell">
-                                <div class="model-name"><strong>${modelName}</strong></div>
+                                <div class="model-name"><strong>${modelName}</strong>
+                                    <button class="detail-btn" data-index="${sorted.indexOf(row)}" title="View details">
+                                        <i class="fas fa-info-circle"></i>
+                                    </button>${row.traj_file ? `<button class="traj-btn" data-traj-file="${row.traj_file}" data-model="${row.model}" title="View trajectories"><i class="fas fa-route"></i></button>` : ''}
+                                </div>
                                 <div class="model-org">${row.organization}</div>
                                 <div class="model-date"><i class="far fa-calendar"></i> ${formatDate(row.date)}</div>
                             </td>
@@ -874,7 +858,294 @@
                         </tr>
                     `;
                 }).join('');
+
+                // Attach detail button click handlers
+                tbody.querySelectorAll('.detail-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const idx = parseInt(btn.dataset.index);
+                        const row = sorted[idx];
+                        openDetailModal(row);
+                    });
+                });
+                tbody.querySelectorAll('.traj-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openTrajModal(btn.dataset.trajFile, btn.dataset.model);
+                    });
+                });
             }
+            // Detail modal logic
+            const modal = document.getElementById('detail-modal');
+            const modalHeader = document.getElementById('detail-modal-header');
+            const modalBody = document.getElementById('detail-modal-body');
+            const modalClose = document.getElementById('detail-modal-close');
+            const modalBg = modal.querySelector('.modal-background');
+
+            const AGENT_BASE_URL = 'https://github.com/Tongyi-MAI/MobileWorld/blob/main/src/mobile_world/agents/implementations/';
+            const AGENT_FILES = {
+                'qwen3vl': 'qwen3vl.py',
+                'planner_executor': 'planner_executor.py',
+                'mai_ui_agent': 'mai_ui_agent.py',
+                'general_e2e': 'general_e2e_agent.py',
+                'seed_agent': 'seed_agent.py',
+                'gelab_agent': 'gelab_agent.py',
+                'ui_venus_agent': 'ui_venus_agent.py',
+                'gui_owl_1_5': 'gui_owl_1_5.py',
+            };
+
+            function agentTypeHtml(agentType) {
+                if (!agentType) return null;
+                const key = agentType.toLowerCase();
+                const file = AGENT_FILES[key];
+                if (file) {
+                    return `<a href="${AGENT_BASE_URL}${file}" target="_blank" rel="noopener">${agentType}</a>`;
+                }
+                return agentType;
+            }
+
+            function openDetailModal(row) {
+                const overallScore = getFilteredScore(row);
+                const na = '<span class="dm-empty">—</span>';
+                const categoryLabel = row.model_type === 'Agentic Framework' ? 'Agentic' : 'End-to-End';
+
+                modalHeader.innerHTML = `
+                    <span class="dm-pill">${categoryLabel}</span>
+                    <h2 class="dm-title">${row.model}</h2>
+                    <p class="dm-subtitle">${row.organization} · ${formatDate(row.date)}</p>
+                `;
+
+                function scoreRow(label, value) {
+                    const display = value !== null && value !== undefined ? value.toFixed(1) : null;
+                    const pct = display !== null ? Math.min(value / 100 * 100, 100) : 0;
+                    return `<div class="dm-row">
+                        <span class="dm-row-label">${label}</span>
+                        <span class="dm-bar-wrap"><span class="dm-bar" style="width:${pct}%"></span></span>
+                        <span class="dm-row-val">${display !== null ? display : na}</span>
+                    </div>`;
+                }
+
+                const linkDisplay = row.link
+                    ? (() => { try { return new URL(row.link).hostname; } catch { return row.link; } })()
+                    : null;
+
+                modalBody.innerHTML = `
+                    <div class="dm-metric">
+                        <span class="dm-metric-num">${overallScore !== null ? overallScore.toFixed(1) : '—'}</span>
+                        <span class="dm-metric-unit">% overall</span>
+                    </div>
+
+                    <div class="dm-scores">
+                        ${scoreRow('GUI-Only', row.gui_only)}
+                        ${scoreRow('User-Int.', row.user_int)}
+                        ${scoreRow('MCP', row.mcp)}
+                    </div>
+
+                    <hr class="dm-hr">
+
+                    <dl class="dm-dl">
+                        <div class="dm-dl-row">
+                            <dt>Max steps</dt><dd>${row.max_steps}</dd>
+                        </div>
+                        <div class="dm-dl-row">
+                            <dt>Runs</dt><dd>${row.runs}</dd>
+                        </div>
+                        <div class="dm-dl-row">
+                            <dt>Reference</dt><dd>${row.link ? `<a href="${row.link}" target="_blank" rel="noopener">${linkDisplay}</a>` : na}</dd>
+                        </div>
+                    </dl>
+
+                    <hr class="dm-hr">
+
+                    <dl class="dm-dl">
+                        <div class="dm-dl-row">
+                            <dt>Agent type</dt><dd>${agentTypeHtml(row.agent_type) ?? na}</dd>
+                        </div>
+                        <div class="dm-dl-row">
+                            <dt>Images in history</dt><dd>${row.num_images_in_history ?? na}</dd>
+                        </div>
+                        <div class="dm-dl-row dm-dl-row--block">
+                            <dt>Notes</dt><dd>${row.notes ?? na}</dd>
+                        </div>
+                    </dl>
+                    ${row.traj_file ? `
+                    <hr class="dm-hr">
+                    <button class="traj-open-btn" data-traj-file="${row.traj_file}" data-model="${row.model}">
+                        <i class="fas fa-route"></i> View Trajectories
+                    </button>` : ''}
+                `;
+                modal.classList.add('is-active');
+
+                const trajBtn = modalBody.querySelector('.traj-open-btn');
+                if (trajBtn) {
+                    trajBtn.addEventListener('click', () => {
+                        closeDetailModal();
+                        openTrajModal(trajBtn.dataset.trajFile, trajBtn.dataset.model);
+                    });
+                }
+            }
+
+            function closeDetailModal() {
+                modal.classList.remove('is-active');
+            }
+
+            modalClose.addEventListener('click', closeDetailModal);
+            modalBg.addEventListener('click', closeDetailModal);
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (trajModal.classList.contains('is-active')) closeTrajModal();
+                    else closeDetailModal();
+                }
+            });
+
+            // ── Trajectory Viewer ──
+            const trajModal = document.getElementById('traj-modal');
+            const trajModalClose = document.getElementById('traj-modal-close');
+            const trajModalBg = trajModal.querySelector('.modal-background');
+            const trajModelName = document.getElementById('traj-model-name');
+            const trajTaskSelect = document.getElementById('traj-task-select');
+            const trajResultBadge = document.getElementById('traj-result-badge');
+            const trajLoading = document.getElementById('traj-loading');
+            const trajSteps = document.getElementById('traj-steps');
+
+            const trajCache = {};
+
+            async function fetchGzipJson(url) {
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const ds = new DecompressionStream('gzip');
+                const decompressed = resp.body.pipeThrough(ds);
+                const reader = decompressed.getReader();
+                const chunks = [];
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                }
+                const blob = new Blob(chunks);
+                const text = await blob.text();
+                return JSON.parse(text);
+            }
+
+            async function openTrajModal(trajFile, modelName) {
+                trajModelName.textContent = modelName + ' — Trajectories';
+                trajTaskSelect.innerHTML = '';
+                trajSteps.innerHTML = '';
+                trajResultBadge.textContent = '';
+                trajLoading.style.display = 'flex';
+                trajModal.classList.add('is-active');
+
+                let data;
+                if (trajCache[trajFile]) {
+                    data = trajCache[trajFile];
+                } else {
+                    try {
+                        data = await fetchGzipJson(trajFile);
+                        trajCache[trajFile] = data;
+                    } catch (err) {
+                        trajLoading.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Failed to load: ${err.message}`;
+                        return;
+                    }
+                }
+                trajLoading.style.display = 'none';
+
+                const taskNames = Object.keys(data).sort();
+                taskNames.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    trajTaskSelect.appendChild(opt);
+                });
+
+                function renderTask(taskName) {
+                    const task = data[taskName];
+                    if (!task) return;
+
+                    // Result badge
+                    if (task.result) {
+                        const scoreMatch = task.result.match(/score:\s*([\d.]+)/);
+                        const score = scoreMatch ? parseFloat(scoreMatch[1]) : null;
+                        trajResultBadge.textContent = score === 1 ? 'Pass' : score === 0 ? 'Fail' : task.result.split('\n')[0];
+                        trajResultBadge.className = 'traj-result ' + (score === 1 ? 'traj-result--pass' : 'traj-result--fail');
+                    } else {
+                        trajResultBadge.textContent = '';
+                        trajResultBadge.className = 'traj-result';
+                    }
+
+                    const steps = task.traj || [];
+                    const taskGoal = steps.length > 0 && steps[0].task_goal
+                        ? `<div class="traj-goal"><span class="traj-goal-label">Task Goal</span>${escHtml(steps[0].task_goal)}</div>` : '';
+                    trajSteps.innerHTML = taskGoal + steps.map((step, i) => {
+                        const pred = step.prediction || '';
+                        let think = '', response = '';
+                        const thinkMatch = pred.match(/<think>([\s\S]*?)<\/think>/);
+                        if (thinkMatch) {
+                            think = thinkMatch[1].trim();
+                            response = pred.slice(thinkMatch.index + thinkMatch[0].length).trim();
+                        } else {
+                            response = pred;
+                        }
+
+                        const action = step.action || {};
+                        let actionStr = action.action_type || 'unknown';
+                        if (action.x !== undefined && action.y !== undefined) {
+                            actionStr += ` (${action.x}, ${action.y})`;
+                        }
+                        if (action.text) {
+                            actionStr += `: "${action.text}"`;
+                        }
+                        if (action.direction) {
+                            actionStr += ` ${action.direction}`;
+                        }
+
+                        const askUser = step.ask_user_response
+                            ? `<div class="traj-ask-user"><span class="traj-ask-label">User Response</span><span>${escHtml(step.ask_user_response)}</span></div>`
+                            : '';
+
+                        const toolCall = step.tool_call
+                            ? `<div class="traj-tool-call"><span class="traj-tool-label">Tool Call</span><pre>${escHtml(JSON.stringify(step.tool_call, null, 2))}</pre></div>`
+                            : '';
+
+                        return `
+                            <div class="traj-step">
+                                <div class="traj-step-header">
+                                    <span class="traj-step-num">Step ${step.step || i + 1}</span>
+                                    <span class="traj-action-badge">${escHtml(actionStr)}</span>
+                                </div>
+                                ${think ? `<details class="traj-think"><summary>Thinking</summary><div class="traj-think-body">${escHtml(think)}</div></details>` : ''}
+                                ${response ? `<div class="traj-response">${escHtml(response)}</div>` : ''}
+                                ${askUser}
+                                ${toolCall}
+                            </div>
+                        `;
+                    }).join('');
+
+                    if (task.token_usage) {
+                        const tu = task.token_usage;
+                        trajSteps.innerHTML += `
+                            <div class="traj-token-summary">
+                                Token usage: ${(tu.prompt_tokens||0).toLocaleString()} prompt · ${(tu.completion_tokens||0).toLocaleString()} completion · ${(tu.total_tokens||0).toLocaleString()} total
+                            </div>
+                        `;
+                    }
+                }
+
+                trajTaskSelect.onchange = () => renderTask(trajTaskSelect.value);
+                if (taskNames.length > 0) renderTask(taskNames[0]);
+            }
+
+            function escHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            function closeTrajModal() {
+                trajModal.classList.remove('is-active');
+            }
+
+            trajModalClose.addEventListener('click', closeTrajModal);
+            trajModalBg.addEventListener('click', closeTrajModal);
         });
     </script>
 </body>
