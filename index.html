@@ -30,7 +30,7 @@
 
 <body>
     <!-- Navigation Bar -->
-    <nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation">
+    <nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation" id="main-navbar">
         <div class="navbar-brand">
             <a class="navbar-item navbar-title" href="#">
                 <strong>MobileWorld</strong>
@@ -51,13 +51,13 @@
                     <div class="buttons">
                         <a href="https://arxiv.org/abs/2512.19432" class="button is-small is-dark" target="_blank">
                             <span class="icon"><i class="ai ai-arxiv"></i></span>
-                            <span>ACL 2026</span>
+                            <span>Paper</span>
                         </a>
                         <a href="https://huggingface.co/datasets/Tongyi-MAI/MobileWorld" class="button is-small is-dark"
                             target="_blank">
                             <span class="icon"><img
                                     src="https://huggingface.co/front/assets/huggingface_logo-noborder.svg" alt="HF"
-                                    style="height: 16px;"></span>
+                                    style="height: 14px; opacity: 0.7;"></span>
                             <span>Dataset</span>
                         </a>
                         <a href="https://github.com/Tongyi-MAI/MobileWorld" class="button is-small is-dark"
@@ -85,7 +85,7 @@
 }</code></pre>
                                         <button class="button is-small is-fullwidth mt-2" id="copy-cite-btn">
                                             <span class="icon"><i class="fas fa-copy"></i></span>
-                                            <span>Copy to Clipboard</span>
+                                            <span>Copy</span>
                                         </button>
                                     </div>
                                 </div>
@@ -532,10 +532,11 @@
         // Initialize syntax highlighting
         hljs.highlightAll();
 
-        // Navbar burger toggle
+        // Navbar burger toggle + scroll detection
         document.addEventListener('DOMContentLoaded', () => {
             const $navbarBurger = document.getElementById('navbar-burger');
             const $navbarMenu = document.getElementById('navbar-menu');
+            const $navbar = document.getElementById('main-navbar');
 
             if ($navbarBurger) {
                 $navbarBurger.addEventListener('click', () => {
@@ -543,6 +544,17 @@
                     $navbarMenu.classList.toggle('is-active');
                 });
             }
+
+            let ticking = false;
+            window.addEventListener('scroll', () => {
+                if (!ticking) {
+                    requestAnimationFrame(() => {
+                        $navbar.classList.toggle('is-scrolled', window.scrollY > 10);
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            }, { passive: true });
         });
 
         // Copy code function
