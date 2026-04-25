@@ -27,6 +27,9 @@ MCP = "mcp"
 ENV_FAIL = "error_env"
 DEFAULT_IMAGE = "ghcr.io/tongyi-mai/mobile_world:latest"
 DEFAULT_NAME_PREFIX = "mobile_world_env"
+
+# Coordinate scale factor — model emits pixel coords normalised to [0, 999].
+SCALE_FACTOR = 999
 _ACTION_TYPES = (
     CLICK,
     DOUBLE_TAP,

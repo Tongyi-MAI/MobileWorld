@@ -115,15 +115,16 @@ def judge_swipe_direction(start_x: float, start_y: float, end_x: float, end_y: f
 
 
 def reverse_swipe_direction(direction: str) -> str:
-    if direction == "up":
-        return "down"
-    elif direction == "down":
-        return "up"
-    else:
-        if direction == "left" or direction == "right":
-            return direction
-        else:
-            raise ValueError(f"Invalid direction: {direction}")
+    """Reverse vertical swipe directions; pass through everything else.
+
+    The MAI-UI model emits swipe direction from the content's point of view
+    (what the user wants the screen to scroll towards), but the runtime
+    expects the finger's direction. ``up`` and ``down`` flip; ``left`` and
+    ``right`` are unchanged. Unknown strings are returned as-is so callers
+    can decide whether to treat them as malformed (e.g. by mapping to
+    ``UNKNOWN``) instead of having to wrap this in try/except.
+    """
+    return {"up": "down", "down": "up"}.get(direction, direction)
 
 
 def round_by_factor(number: int, factor: int) -> int:

@@ -4,33 +4,19 @@ import traceback
 from typing import Any
 
 from loguru import logger
-from PIL import Image
 
 from mobile_world.agents.base import MCPAgent
-from mobile_world.agents.utils.helpers import pil_to_base64, reverse_swipe_direction
+from mobile_world.agents.utils.action_translation import args_to_action_dict
+from mobile_world.agents.utils.helpers import pil_to_base64
+from mobile_world.agents.utils.message_utils import hide_history_images
 from mobile_world.agents.utils.prompts import MAI_MOBILE_SYS_PROMPT_ASK_USER_MCP
 from mobile_world.runtime.utils.helpers import pretty_print_messages
 from mobile_world.runtime.utils.models import (
-    ANSWER,
-    ASK_USER,
-    CLICK,
-    DOUBLE_TAP,
-    DRAG,
-    FINISHED,
-    INPUT_TEXT,
-    KEYBOARD_ENTER,
-    LONG_PRESS,
     MCP,
-    NAVIGATE_BACK,
-    NAVIGATE_HOME,
-    OPEN_APP,
-    SCROLL,
+    SCALE_FACTOR,
     UNKNOWN,
-    WAIT,
     JSONAction,
 )
-
-SCALE_FACTOR = 999
 
 
 def parse_tagged_text(text: str) -> dict[str, Any]:
@@ -198,32 +184,8 @@ class MAIUINaivigationAgent(MCPAgent):
             }
 
     def _hide_history_images(self, messages: list[dict]) -> list[dict]:
-        """
-        Limit the number of images sent to the model by removing older image messages.
-        Keep only the most recent history_n images.
-
-        Args:
-            messages: List of message dicts
-
-        Returns:
-            Modified messages with limited images
-        """
-        # Collect indices of messages that contain images (from back to front)
-        image_message_indices = []
-        for i in range(len(messages) - 1, -1, -1):
-            if (
-                messages[i]["role"] == "user"
-                and len(messages[i]["content"]) > 0
-                and messages[i]["content"][0]["type"] == "image_url"
-            ):
-                image_message_indices.append(i)
-
-        indices_to_remove = sorted(image_message_indices[self.history_n :], reverse=True)
-
-        for idx in indices_to_remove:
-            del messages[idx]
-
-        return messages
+        """Keep only the most recent ``history_n`` image user-turns."""
+        return hide_history_images(messages, self.history_n)
 
     def _build_messages(self, obs_image: Any, tool_call: Any, ask_user_response: Any) -> list[dict]:
         """Build the message list for the LLM API call."""
@@ -296,10 +258,13 @@ class MAIUINaivigationAgent(MCPAgent):
             raise ValueError("Planner LLM failed")
         logger.info(f"Raw LLM response:\n{prediction}")
         try:
-            parsed_response = parse_action_to_structure_output(prediction)
-            thinking = parsed_response["thinking"]
-            tool_name = parsed_response.get("tool_name", "mobile_use")
-            action_json = parsed_response["action_json"]
+            parsed = parse_tagged_text(prediction)
+            thinking = parsed.get("thinking")
+            tool_call = parsed.get("tool_call")
+            if not isinstance(tool_call, dict):
+                raise ValueError(f"Parse failed: tool_call is {type(tool_call).__name__}")
+            tool_name = tool_call.get("name", "mobile_use")
+            action_json = tool_call.get("arguments", {})
 
             logger.info(f"Parsed thinking: {thinking}")
             logger.info(f"Parsed tool_name: {tool_name}")
@@ -315,14 +280,6 @@ class MAIUINaivigationAgent(MCPAgent):
 
         return prediction, json_action
 
-    def _get_image_size(self, obs_image: Any) -> tuple[int, int]:
-        assert isinstance(obs_image, Image.Image)
-        return obs_image.size
-
-    def _normalize_coord_to_pixel(self, coord: list[float], obs_image: Any) -> tuple[int, int]:
-        width, height = self._get_image_size(obs_image)
-        return int(coord[0] * width), int(coord[1] * height)
-
     def _convert_to_json_action(
         self, tool_name: str, action_json: dict, obs_image: Any
     ) -> JSONAction:
@@ -332,64 +289,8 @@ class MAIUINaivigationAgent(MCPAgent):
                 action_name=tool_name,
                 action_json=action_json,
             )
-
-        action_type = action_json.get("action", UNKNOWN)
-
-        if action_type in ("click", "long_press", "double_click"):
-            coordinate = action_json.get("coordinate")
-            if not coordinate:
-                raise ValueError(f"Missing coordinate for {action_type}")
-            x, y = self._normalize_coord_to_pixel(coordinate, obs_image)
-            type_map = {"click": CLICK, "long_press": LONG_PRESS, "double_click": DOUBLE_TAP}
-            return JSONAction(action_type=type_map[action_type], x=x, y=y)
-
-        if action_type == "swipe":
-            direction = reverse_swipe_direction(action_json.get("direction", "up"))
-            coordinate = action_json.get("coordinate")
-            if coordinate:
-                x, y = self._normalize_coord_to_pixel(coordinate, obs_image)
-                return JSONAction(action_type=SCROLL, direction=direction, x=x, y=y)
-            return JSONAction(action_type=SCROLL, direction=direction)
-
-        if action_type == "drag":
-            start_coord = action_json.get("start_coordinate", [0, 0])
-            end_coord = action_json.get("end_coordinate", [0, 0])
-            start_x, start_y = self._normalize_coord_to_pixel(start_coord, obs_image)
-            end_x, end_y = self._normalize_coord_to_pixel(end_coord, obs_image)
-            return JSONAction(
-                action_type=DRAG,
-                start_x=start_x,
-                start_y=start_y,
-                end_x=end_x,
-                end_y=end_y,
-            )
-
-        if action_type == "system_button":
-            button = action_json.get("button", "").lower()
-            button_map = {"back": NAVIGATE_BACK, "home": NAVIGATE_HOME, "enter": KEYBOARD_ENTER}
-            if button in button_map:
-                return JSONAction(action_type=button_map[button])
-            return JSONAction(action_type=UNKNOWN, text=f"Unknown button: {button}")
-
-        if action_type == "type":
-            return JSONAction(action_type=INPUT_TEXT, text=action_json.get("text", ""))
-
-        if action_type == "open":
-            return JSONAction(action_type=OPEN_APP, app_name=action_json.get("text", ""))
-
-        if action_type == "terminate":
-            return JSONAction(action_type=FINISHED, text=action_json.get("status", "success"))
-
-        if action_type == "answer":
-            return JSONAction(action_type=ANSWER, text=action_json.get("text", ""))
-
-        if action_type == "ask_user":
-            return JSONAction(action_type=ASK_USER, text=action_json.get("text", ""))
-
-        if action_type == "wait":
-            return JSONAction(action_type=WAIT)
-
-        return JSONAction(action_type=UNKNOWN, text=f"Unknown action: {action_type}")
+        width, height = obs_image.size
+        return JSONAction(**args_to_action_dict(action_json, width, height))
 
     def reset(self) -> None:
         """Reset the agent for the next task."""
