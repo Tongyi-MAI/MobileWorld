@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arena — MobileWorld</title>
+    <meta name="description" content="Compare model trajectories head-to-head on MobileWorld tasks">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="arena.css">
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation" id="main-navbar">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-title" href="index.html">
+                <strong>MobileWorld</strong>
+            </a>
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" id="navbar-burger">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </a>
+        </div>
+        <div class="navbar-menu" id="navbar-menu">
+            <div class="navbar-start">
+                <a class="navbar-item" href="index.html#leaderboard">Leaderboard</a>
+                <a class="navbar-item" href="index.html#overview">Overview</a>
+            </div>
+            <div class="navbar-end">
+                <div class="navbar-item">
+                    <div class="buttons">
+                        <a href="https://arxiv.org/abs/2512.19432" class="button is-small is-dark" target="_blank">
+                            <span class="icon"><i class="ai ai-arxiv"></i></span>
+                            <span>Paper</span>
+                        </a>
+                        <a href="https://github.com/Tongyi-MAI/MobileWorld" class="button is-small is-dark"
+                            target="_blank">
+                            <span class="icon"><i class="fab fa-github"></i></span>
+                            <span>Code</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container is-max-desktop">
+        <section class="section arena-hero-section">
+            <h1 class="title is-3">Arena</h1>
+            <p class="arena-desc">Compare two models head-to-head on individual tasks. Select models, filter by outcome,
+                then inspect their trajectories side-by-side to understand differences in reasoning and navigation.</p>
+        </section>
+
+        <!-- Model Selection -->
+        <section class="section arena-select-section">
+            <div class="arena-model-pickers">
+                <div class="arena-picker arena-picker--left">
+                    <label class="arena-picker-label">Model A</label>
+                    <div class="lb-select-wrap arena-select-wrap">
+                        <select id="model-a-select">
+                            <option value="">Choose model…</option>
+                        </select>
+                    </div>
+                    <div class="arena-model-meta" id="model-a-meta"></div>
+                </div>
+                <div class="arena-vs">vs</div>
+                <div class="arena-picker arena-picker--right">
+                    <label class="arena-picker-label">Model B</label>
+                    <div class="lb-select-wrap arena-select-wrap">
+                        <select id="model-b-select">
+                            <option value="">Choose model…</option>
+                        </select>
+                    </div>
+                    <div class="arena-model-meta" id="model-b-meta"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading -->
+        <div class="arena-loading" id="arena-loading" style="display:none">
+            <i class="fas fa-spinner fa-spin"></i> Loading trajectories&hellip;
+        </div>
+
+        <!-- Confusion Matrix + Task List (hidden until both models loaded) -->
+        <section class="section arena-content" id="arena-content" style="display:none">
+
+            <!-- Confusion Matrix Filter -->
+            <div class="arena-matrix-section">
+                <h2 class="arena-section-title">Outcome Filter</h2>
+                <p class="arena-section-desc">Tasks grouped by pass/fail outcomes. Click a cell to filter.</p>
+                <div class="arena-matrix" id="arena-matrix">
+                    <div class="arena-matrix-corner"></div>
+                    <div class="arena-matrix-col-header" id="matrix-col-header">Model B</div>
+                    <div class="arena-matrix-row-header" id="matrix-row-header">Model A</div>
+
+                    <div class="arena-matrix-label arena-matrix-label--col arena-matrix-label--pass">Pass</div>
+                    <div class="arena-matrix-label arena-matrix-label--col arena-matrix-label--fail">Fail</div>
+                    <div class="arena-matrix-label arena-matrix-label--row arena-matrix-label--pass">Pass</div>
+                    <div class="arena-matrix-label arena-matrix-label--row arena-matrix-label--fail">Fail</div>
+
+                    <button class="arena-matrix-cell arena-matrix-cell--pp" data-filter="pp" id="cell-pp">
+                        <span class="arena-cell-count">0</span>
+                        <span class="arena-cell-label">Both Pass</span>
+                    </button>
+                    <button class="arena-matrix-cell arena-matrix-cell--pf" data-filter="pf" id="cell-pf">
+                        <span class="arena-cell-count">0</span>
+                        <span class="arena-cell-label">A Pass, B Fail</span>
+                    </button>
+                    <button class="arena-matrix-cell arena-matrix-cell--fp" data-filter="fp" id="cell-fp">
+                        <span class="arena-cell-count">0</span>
+                        <span class="arena-cell-label">A Fail, B Pass</span>
+                    </button>
+                    <button class="arena-matrix-cell arena-matrix-cell--ff" data-filter="ff" id="cell-ff">
+                        <span class="arena-cell-count">0</span>
+                        <span class="arena-cell-label">Both Fail</span>
+                    </button>
+                </div>
+                <div class="arena-matrix-summary" id="arena-matrix-summary"></div>
+            </div>
+
+            <!-- Task List -->
+            <div class="arena-tasklist-section">
+                <div class="arena-tasklist-header">
+                    <h2 class="arena-section-title">Tasks <span class="arena-task-count" id="arena-task-count"></span>
+                    </h2>
+                    <div class="lb-select-wrap">
+                        <select id="arena-category-filter">
+                            <option value="all">All categories</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="arena-tasklist" id="arena-tasklist"></div>
+            </div>
+
+            <!-- Side-by-side Trajectory Comparison -->
+            <div class="arena-comparison" id="arena-comparison" style="display:none">
+                <div class="arena-comparison-header">
+                    <h2 class="arena-section-title" id="arena-comparison-title">Task Trajectory</h2>
+                    <button class="arena-comparison-close" id="arena-comparison-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="arena-task-goal" id="arena-task-goal"></div>
+                <div class="arena-comparison-columns">
+                    <div class="arena-col arena-col--left">
+                        <div class="arena-col-header">
+                            <span class="arena-col-model" id="arena-col-a-name">Model A</span>
+                            <span class="arena-col-badge" id="arena-col-a-badge"></span>
+                            <span class="arena-col-steps" id="arena-col-a-steps"></span>
+                        </div>
+                        <div class="arena-col-body" id="arena-col-a-body"></div>
+                        <div class="arena-col-tokens" id="arena-col-a-tokens"></div>
+                    </div>
+                    <div class="arena-col arena-col--right">
+                        <div class="arena-col-header">
+                            <span class="arena-col-model" id="arena-col-b-name">Model B</span>
+                            <span class="arena-col-badge" id="arena-col-b-badge"></span>
+                            <span class="arena-col-steps" id="arena-col-b-steps"></span>
+                        </div>
+                        <div class="arena-col-body" id="arena-col-b-body"></div>
+                        <div class="arena-col-tokens" id="arena-col-b-tokens"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="content has-text-centered">
+            <p>
+                <strong>MobileWorld Team</strong> &middot;
+                <a href="https://github.com/Tongyi-MAI/MobileWorld">GitHub</a> &middot;
+                <a href="index.html">Leaderboard</a>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // ── Navbar ──
+            const $burger = document.getElementById('navbar-burger');
+            const $menu = document.getElementById('navbar-menu');
+            const $navbar = document.getElementById('main-navbar');
+            if ($burger) $burger.addEventListener('click', () => {
+                $burger.classList.toggle('is-active');
+                $menu.classList.toggle('is-active');
+            });
+            let ticking = false;
+            window.addEventListener('scroll', () => {
+                if (!ticking) {
+                    requestAnimationFrame(() => {
+                        $navbar.classList.toggle('is-scrolled', window.scrollY > 10);
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            }, { passive: true });
+
+            // ── Load leaderboard data ──
+            const lb = await fetch('leaderboard.json').then(r => r.json());
+            const modelsWithTraj = lb.results.filter(r => r.traj_file);
+
+            const selA = document.getElementById('model-a-select');
+            const selB = document.getElementById('model-b-select');
+            const metaA = document.getElementById('model-a-meta');
+            const metaB = document.getElementById('model-b-meta');
+
+            modelsWithTraj.forEach(m => {
+                [selA, selB].forEach(sel => {
+                    const opt = document.createElement('option');
+                    opt.value = m.model;
+                    opt.textContent = `${m.model} (${m.organization})`;
+                    sel.appendChild(opt);
+                });
+            });
+
+            // Pre-select from query param (e.g. ?model=Claude-Opus-4.7)
+            const urlModel = new URLSearchParams(window.location.search).get('model');
+            if (urlModel && modelsWithTraj.some(m => m.model === urlModel)) {
+                selA.value = urlModel;
+            }
+
+            // ── State ──
+            const trajCache = {};
+            let dataA = null, dataB = null;
+            let modelInfoA = null, modelInfoB = null;
+            let currentFilter = null; // 'pp' | 'pf' | 'fp' | 'ff' | null (all)
+            let taskOutcomes = {};    // { taskName: { a: bool, b: bool } }
+            let allTaskNames = [];
+
+            // ── Helpers ──
+            function escHtml(str) {
+                const d = document.createElement('div');
+                d.textContent = str;
+                return d.innerHTML;
+            }
+
+            function getScore(resultStr) {
+                if (!resultStr) return null;
+                const m = resultStr.match(/score:\s*([\d.]+)/);
+                return m ? parseFloat(m[1]) : null;
+            }
+
+            function isPass(resultStr) {
+                return getScore(resultStr) === 1;
+            }
+
+            async function fetchGzipJson(url) {
+                if (trajCache[url]) return trajCache[url];
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const ds = new DecompressionStream('gzip');
+                const decompressed = resp.body.pipeThrough(ds);
+                const reader = decompressed.getReader();
+                const chunks = [];
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                }
+                const blob = new Blob(chunks);
+                const text = await blob.text();
+                const data = JSON.parse(text);
+                trajCache[url] = data;
+                return data;
+            }
+
+            function formatMeta(info) {
+                if (!info) return '';
+                const parts = [info.organization];
+                if (info.gui_only !== null) parts.push(`GUI ${info.gui_only}%`);
+                if (info.user_int !== null) parts.push(`User-Int ${info.user_int}%`);
+                return parts.join(' · ');
+            }
+
+            const APP_PREFIXES = [
+                'mattermost', 'mastodon', 'markor', 'calendar', 'chrome',
+                'gmail', 'messages', 'map', 'mall', 'miniwob', 'contacts',
+                'clock', 'settings', 'camera', 'gallery', 'files', 'vlc',
+                'opentracks', 'tasks', 'osmand', 'simpletask', 'briar',
+                'joplin', 'recipes', 'retro_music', 'clipious',
+            ];
+
+            function getTaskCategory(taskName) {
+                const lower = taskName.toLowerCase();
+                for (const prefix of APP_PREFIXES) {
+                    if (lower.startsWith(prefix + '_') || lower === prefix) return prefix;
+                }
+                return 'other';
+            }
+
+            // ── Model selection ──
+            async function onModelChange() {
+                const nameA = selA.value;
+                const nameB = selB.value;
+                modelInfoA = modelsWithTraj.find(m => m.model === nameA) || null;
+                modelInfoB = modelsWithTraj.find(m => m.model === nameB) || null;
+
+                metaA.textContent = formatMeta(modelInfoA);
+                metaB.textContent = formatMeta(modelInfoB);
+
+                if (!modelInfoA || !modelInfoB || nameA === nameB) {
+                    document.getElementById('arena-content').style.display = 'none';
+                    document.getElementById('arena-loading').style.display = 'none';
+                    if (nameA && nameB && nameA === nameB) {
+                        metaB.textContent = 'Please choose a different model';
+                        metaB.style.color = '#e67e22';
+                    } else {
+                        metaB.style.color = '';
+                    }
+                    return;
+                }
+                metaB.style.color = '';
+
+                document.getElementById('arena-loading').style.display = 'flex';
+                document.getElementById('arena-content').style.display = 'none';
+
+                try {
+                    [dataA, dataB] = await Promise.all([
+                        fetchGzipJson(modelInfoA.traj_file),
+                        fetchGzipJson(modelInfoB.traj_file)
+                    ]);
+                } catch (err) {
+                    document.getElementById('arena-loading').innerHTML =
+                        `<i class="fas fa-exclamation-triangle"></i> Failed to load: ${err.message}`;
+                    return;
+                }
+
+                document.getElementById('arena-loading').style.display = 'none';
+                document.getElementById('arena-content').style.display = '';
+
+                buildOutcomes();
+                buildMatrix();
+                populateCategoryFilter();
+                currentFilter = null;
+                highlightMatrixCell(null);
+                renderTaskList();
+                hideComparison();
+            }
+
+            selA.addEventListener('change', onModelChange);
+            selB.addEventListener('change', onModelChange);
+
+            // ── Build outcome map ──
+            function buildOutcomes() {
+                taskOutcomes = {};
+                const keysA = new Set(Object.keys(dataA));
+                const keysB = new Set(Object.keys(dataB));
+                allTaskNames = [...new Set([...keysA, ...keysB])].sort();
+
+                allTaskNames.forEach(name => {
+                    const inA = keysA.has(name);
+                    const inB = keysB.has(name);
+                    if (!inA || !inB) return;
+                    taskOutcomes[name] = {
+                        a: isPass(dataA[name].result),
+                        b: isPass(dataB[name].result),
+                    };
+                });
+                allTaskNames = Object.keys(taskOutcomes).sort();
+            }
+
+            // ── Confusion matrix ──
+            function buildMatrix() {
+                let pp = 0, pf = 0, fp = 0, ff = 0;
+                for (const name of allTaskNames) {
+                    const o = taskOutcomes[name];
+                    if (o.a && o.b) pp++;
+                    else if (o.a && !o.b) pf++;
+                    else if (!o.a && o.b) fp++;
+                    else ff++;
+                }
+
+                document.querySelector('#cell-pp .arena-cell-count').textContent = pp;
+                document.querySelector('#cell-pf .arena-cell-count').textContent = pf;
+                document.querySelector('#cell-fp .arena-cell-count').textContent = fp;
+                document.querySelector('#cell-ff .arena-cell-count').textContent = ff;
+
+                document.getElementById('matrix-col-header').textContent = modelInfoB.model;
+                document.getElementById('matrix-row-header').textContent = modelInfoA.model;
+
+                const total = allTaskNames.length;
+                const agree = pp + ff;
+                document.getElementById('arena-matrix-summary').textContent =
+                    `${total} shared tasks · ${agree} agree (${(agree / total * 100).toFixed(0)}%) · ${pf + fp} disagree (${((pf + fp) / total * 100).toFixed(0)}%)`;
+            }
+
+            // ── Matrix cell clicks ──
+            document.querySelectorAll('.arena-matrix-cell').forEach(cell => {
+                cell.addEventListener('click', () => {
+                    const f = cell.dataset.filter;
+                    currentFilter = currentFilter === f ? null : f;
+                    highlightMatrixCell(currentFilter);
+                    renderTaskList();
+                    hideComparison();
+                });
+            });
+
+            function highlightMatrixCell(filter) {
+                document.querySelectorAll('.arena-matrix-cell').forEach(c => {
+                    c.classList.toggle('arena-matrix-cell--active', c.dataset.filter === filter);
+                });
+            }
+
+            // ── Category filter ──
+            function populateCategoryFilter() {
+                const catSelect = document.getElementById('arena-category-filter');
+                catSelect.innerHTML = '<option value="all">All categories</option>';
+                const cats = new Set(allTaskNames.map(getTaskCategory));
+                [...cats].sort().forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    catSelect.appendChild(opt);
+                });
+                catSelect.onchange = () => { renderTaskList(); hideComparison(); };
+            }
+
+            // ── Task list ──
+            function getFilteredTasks() {
+                const catFilter = document.getElementById('arena-category-filter').value;
+                return allTaskNames.filter(name => {
+                    const o = taskOutcomes[name];
+                    if (currentFilter) {
+                        const [ea, eb] = currentFilter.split('');
+                        if ((ea === 'p') !== o.a || (eb === 'p') !== o.b) return false;
+                    }
+                    if (catFilter !== 'all' && getTaskCategory(name) !== catFilter) return false;
+                    return true;
+                });
+            }
+
+            function renderTaskList() {
+                const tasks = getFilteredTasks();
+                const container = document.getElementById('arena-tasklist');
+                document.getElementById('arena-task-count').textContent = `(${tasks.length})`;
+
+                if (tasks.length === 0) {
+                    container.innerHTML = '<div class="arena-empty">No tasks match this filter.</div>';
+                    return;
+                }
+
+                container.innerHTML = tasks.map(name => {
+                    const o = taskOutcomes[name];
+                    const badgeA = o.a
+                        ? '<span class="arena-mini-badge arena-mini-badge--pass">Pass</span>'
+                        : '<span class="arena-mini-badge arena-mini-badge--fail">Fail</span>';
+                    const badgeB = o.b
+                        ? '<span class="arena-mini-badge arena-mini-badge--pass">Pass</span>'
+                        : '<span class="arena-mini-badge arena-mini-badge--fail">Fail</span>';
+
+                    const stepsA = (dataA[name]?.traj || []).length;
+                    const stepsB = (dataB[name]?.traj || []).length;
+
+                    return `
+                    <button class="arena-task-row" data-task="${escHtml(name)}">
+                        <span class="arena-task-name">${escHtml(name)}</span>
+                        <span class="arena-task-outcomes">
+                            <span class="arena-task-model-result">
+                                <span class="arena-task-model-label">A</span>${badgeA}<span class="arena-task-steps">${stepsA} steps</span>
+                            </span>
+                            <span class="arena-task-model-result">
+                                <span class="arena-task-model-label">B</span>${badgeB}<span class="arena-task-steps">${stepsB} steps</span>
+                            </span>
+                        </span>
+                    </button>
+                `;
+                }).join('');
+
+                container.querySelectorAll('.arena-task-row').forEach(row => {
+                    row.addEventListener('click', () => {
+                        container.querySelectorAll('.arena-task-row').forEach(r => r.classList.remove('arena-task-row--active'));
+                        row.classList.add('arena-task-row--active');
+                        renderComparison(row.dataset.task);
+                    });
+                });
+            }
+
+            // ── Comparison view ──
+            function hideComparison() {
+                document.getElementById('arena-comparison').style.display = 'none';
+            }
+
+            document.getElementById('arena-comparison-close').addEventListener('click', hideComparison);
+
+            function renderComparison(taskName) {
+                const comp = document.getElementById('arena-comparison');
+                comp.style.display = '';
+                document.getElementById('arena-comparison-title').textContent = taskName;
+
+                const taskA = dataA[taskName];
+                const taskB = dataB[taskName];
+
+                // Task goal
+                const goalEl = document.getElementById('arena-task-goal');
+                const goalA = taskA?.traj?.[0]?.task_goal;
+                const goalB = taskB?.traj?.[0]?.task_goal;
+                const goal = goalA || goalB;
+                goalEl.style.display = goal ? '' : 'none';
+                if (goal) goalEl.innerHTML = `<span class="traj-goal-label">Task Goal</span>${escHtml(goal)}`;
+
+                // Column headers
+                document.getElementById('arena-col-a-name').textContent = modelInfoA.model;
+                document.getElementById('arena-col-b-name').textContent = modelInfoB.model;
+
+                const oA = taskOutcomes[taskName].a;
+                const oB = taskOutcomes[taskName].b;
+                setBadge('arena-col-a-badge', oA);
+                setBadge('arena-col-b-badge', oB);
+
+                document.getElementById('arena-col-a-steps').textContent = `${(taskA?.traj || []).length} steps`;
+                document.getElementById('arena-col-b-steps').textContent = `${(taskB?.traj || []).length} steps`;
+
+                // Render steps
+                document.getElementById('arena-col-a-body').innerHTML = renderSteps(taskA);
+                document.getElementById('arena-col-b-body').innerHTML = renderSteps(taskB);
+
+                // Token usage
+                renderTokens('arena-col-a-tokens', taskA?.token_usage);
+                renderTokens('arena-col-b-tokens', taskB?.token_usage);
+
+                comp.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            function setBadge(id, pass) {
+                const el = document.getElementById(id);
+                el.textContent = pass ? 'Pass' : 'Fail';
+                el.className = 'arena-col-badge ' + (pass ? 'arena-col-badge--pass' : 'arena-col-badge--fail');
+            }
+
+            function renderSteps(task) {
+                if (!task || !task.traj || task.traj.length === 0) {
+                    return '<div class="arena-empty">No trajectory data.</div>';
+                }
+                return task.traj.map((step, i) => {
+                    const pred = step.prediction || '';
+
+                    const action = step.action || {};
+                    let actionStr = action.action_type || 'unknown';
+                    if (action.x !== undefined && action.y !== undefined)
+                        actionStr += ` (${action.x}, ${action.y})`;
+                    if (action.text)
+                        actionStr += `: "${action.text}"`;
+                    if (action.direction)
+                        actionStr += ` ${action.direction}`;
+
+                    const askUser = step.ask_user_response
+                        ? `<div class="traj-ask-user"><span class="traj-ask-label">User Response</span><span>${escHtml(step.ask_user_response)}</span></div>`
+                        : '';
+                    const toolCall = step.tool_call
+                        ? `<div class="traj-tool-call"><span class="traj-tool-label">Tool Call</span><pre>${escHtml(JSON.stringify(step.tool_call, null, 2))}</pre></div>`
+                        : '';
+
+                    return `
+                    <div class="traj-step">
+                        <div class="traj-step-header">
+                            <span class="traj-step-num">Step ${step.step || i + 1}</span>
+                            <span class="traj-action-badge">${escHtml(actionStr)}</span>
+                        </div>
+                        ${pred ? `<div class="traj-response">${escHtml(pred)}</div>` : ''}
+                        ${askUser}
+                        ${toolCall}
+                    </div>
+                `;
+                }).join('');
+            }
+
+            function renderTokens(id, tu) {
+                const el = document.getElementById(id);
+                if (!tu) { el.textContent = ''; return; }
+                el.textContent = `${(tu.prompt_tokens || 0).toLocaleString()} prompt · ${(tu.completion_tokens || 0).toLocaleString()} completion · ${(tu.total_tokens || 0).toLocaleString()} total`;
+            }
+        });
+    </script>
+</body>
+
+</html>

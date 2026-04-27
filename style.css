@@ -193,8 +193,7 @@ html {
     font-size: 0.9em;
 }
 
-.publication-links {
-}
+.publication-links {}
 
 .publication-links .button {
     margin: 0.25rem;
@@ -257,7 +256,10 @@ html {
     text-decoration-color: #ccc;
     text-underline-offset: 2px;
 }
-.lb-desc a:hover { text-decoration-color: #555; }
+
+.lb-desc a:hover {
+    text-decoration-color: #555;
+}
 
 /* Leaderboard filters */
 .lb-filters {
@@ -310,8 +312,13 @@ html {
     background-position: right 0.5rem center;
 }
 
-.lb-select-wrap select:hover { border-color: #ccc; }
-.lb-select-wrap select:focus { border-color: #999; }
+.lb-select-wrap select:hover {
+    border-color: #ccc;
+}
+
+.lb-select-wrap select:focus {
+    border-color: #999;
+}
 
 /* Chip checkboxes */
 .lb-chip {
@@ -335,7 +342,7 @@ html {
     font-weight: 500;
 }
 
-.lb-chip input:checked + span {
+.lb-chip input:checked+span {
     background: #f5f5f3;
     color: #333;
     border-color: #d0d0d0;
@@ -345,7 +352,7 @@ html {
     border-color: #ccc;
 }
 
-.lb-chip input:disabled + span {
+.lb-chip input:disabled+span {
     opacity: 0.5;
     cursor: default;
 }
@@ -363,7 +370,9 @@ html {
     margin-left: auto;
 }
 
-.lb-clear:hover { color: #666; }
+.lb-clear:hover {
+    color: #666;
+}
 
 /* Leaderboard table container */
 .osworld-table-container {
@@ -739,6 +748,7 @@ a:hover {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -756,9 +766,12 @@ a:hover {
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.5;
     }
@@ -809,7 +822,10 @@ a:hover {
     vertical-align: middle;
     transition: color 0.15s;
 }
-.detail-btn:hover { color: #666; }
+
+.detail-btn:hover {
+    color: #666;
+}
 
 .traj-btn {
     background: none;
@@ -821,7 +837,23 @@ a:hover {
     vertical-align: middle;
     transition: color 0.15s;
 }
-.traj-btn:hover { color: #5b7bb5; }
+
+.traj-btn:hover {
+    color: #5b7bb5;
+}
+
+.osworld-leaderboard-table a.arena-link-btn {
+    color: #c4c4c4;
+    font-size: 0.78rem;
+    padding: 0 0.25rem;
+    vertical-align: middle;
+    transition: color 0.15s;
+    text-decoration: none;
+}
+.osworld-leaderboard-table a.arena-link-btn:hover {
+    color: #666;
+    text-decoration: none;
+}
 
 /* ── Modal overlay ── */
 #detail-modal .modal-background {
@@ -859,7 +891,11 @@ a:hover {
     transition: background 0.15s, color 0.15s;
     z-index: 1;
 }
-.dm-close:hover { background: #f0f0f0; color: #333; }
+
+.dm-close:hover {
+    background: #f0f0f0;
+    color: #333;
+}
 
 /* ── Header ── */
 .dm-header {
@@ -1017,15 +1053,24 @@ a:hover {
     text-underline-offset: 2px;
     transition: text-decoration-color 0.15s;
 }
-.dm-dl-row dd a:hover { text-decoration-color: #1a1a1a; }
+
+.dm-dl-row dd a:hover {
+    text-decoration-color: #1a1a1a;
+}
 
 .dm-dl-row--block {
     flex-direction: column;
     gap: 0.2rem;
 }
-.dm-dl-row--block dd { text-align: left; }
 
-.dm-empty { color: #ccc; font-weight: 400; }
+.dm-dl-row--block dd {
+    text-align: left;
+}
+
+.dm-empty {
+    color: #ccc;
+    font-weight: 400;
+}
 
 /* Task count in table headers */
 .task-count {
@@ -1037,7 +1082,16 @@ a:hover {
     text-transform: none;
 }
 
-/* ── View Trajectories button in detail modal ── */
+/* ── Detail modal action buttons ── */
+.dm-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.dm-actions .traj-open-btn {
+    flex: 1;
+}
+
 .traj-open-btn {
     display: flex;
     align-items: center;
@@ -1055,11 +1109,25 @@ a:hover {
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
 }
-.traj-open-btn:hover { background: #f0f0ee; border-color: #ccc; }
-.traj-open-btn i { color: #888; }
+
+.traj-open-btn:hover {
+    background: #f0f0ee;
+    border-color: #ccc;
+}
+
+.traj-open-btn i {
+    color: #888;
+}
+
+a.traj-open-btn {
+    text-decoration: none;
+    color: #333;
+}
 
 /* ── Trajectory modal panel ── */
-#traj-modal .modal-background { background: rgba(0,0,0,0.35); }
+#traj-modal .modal-background {
+    background: rgba(0, 0, 0, 0.35);
+}
 
 .traj-panel {
     position: relative;
@@ -1070,7 +1138,7 @@ a:hover {
     display: flex;
     flex-direction: column;
     border-radius: 12px;
-    box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
 }
 
 .traj-header {
@@ -1094,7 +1162,9 @@ a:hover {
     gap: 0.75rem;
 }
 
-.traj-controls .lb-select-wrap { flex: 1; }
+.traj-controls .lb-select-wrap {
+    flex: 1;
+}
 
 .traj-controls select {
     width: 100%;
@@ -1114,8 +1184,14 @@ a:hover {
     background-repeat: no-repeat;
     background-position: right 0.5rem center;
 }
-.traj-controls select:hover { border-color: #ccc; }
-.traj-controls select:focus { border-color: #999; }
+
+.traj-controls select:hover {
+    border-color: #ccc;
+}
+
+.traj-controls select:focus {
+    border-color: #999;
+}
 
 .traj-result {
     font-size: 0.75rem;
@@ -1125,8 +1201,16 @@ a:hover {
     white-space: nowrap;
     flex-shrink: 0;
 }
-.traj-result--pass { background: #e6f9ee; color: #1a7a3a; }
-.traj-result--fail { background: #fde8ec; color: #a8323c; }
+
+.traj-result--pass {
+    background: #e6f9ee;
+    color: #1a7a3a;
+}
+
+.traj-result--fail {
+    background: #fde8ec;
+    color: #a8323c;
+}
 
 /* ── Trajectory body ── */
 .traj-body {
@@ -1196,7 +1280,10 @@ a:hover {
     user-select: none;
     transition: color 0.15s;
 }
-.traj-think summary:hover { color: #666; }
+
+.traj-think summary:hover {
+    color: #666;
+}
 
 .traj-think-body {
     padding: 0 0.9rem 0.75rem;
@@ -1220,13 +1307,15 @@ a:hover {
 }
 
 /* Ask-user and tool-call blocks */
-.traj-ask-user, .traj-tool-call {
+.traj-ask-user,
+.traj-tool-call {
     padding: 0.6rem 0.9rem;
     border-top: 1px solid #f0f0f0;
     font-size: 0.8rem;
 }
 
-.traj-ask-label, .traj-tool-label {
+.traj-ask-label,
+.traj-tool-label {
     display: inline-block;
     font-size: 0.7rem;
     font-weight: 600;
@@ -1289,6 +1378,14 @@ a:hover {
         max-height: 92vh;
         border-radius: 8px;
     }
-    .traj-header, .traj-body { padding-left: 1rem; padding-right: 1rem; }
-    .traj-title { font-size: 1rem; }
+
+    .traj-header,
+    .traj-body {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .traj-title {
+        font-size: 1rem;
+    }
 }

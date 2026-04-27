@@ -172,8 +172,9 @@
         <!-- Leaderboard -->
         <section id="leaderboard" class="section">
             <h2 class="title is-3">Leaderboard</h2>
-            <p class="lb-desc">Success rate (%) on MobileWorld, weighted by task counts across GUI-Only (117), User-Interaction (44), and MCP (40) tasks. All results evaluated with max steps&nbsp;=&nbsp;50. <a
-                        href="mailto:kongquyu.kqy@alibaba-inc.com">Submit your results&nbsp;&rarr;</a></p>
+            <p class="lb-desc">Success rate (%) on MobileWorld, weighted by task counts across GUI-Only (117),
+                User-Interaction (44), and MCP (40) tasks. All results evaluated with max steps&nbsp;=&nbsp;50. <a
+                    href="mailto:kongquyu.kqy@alibaba-inc.com">Submit your results&nbsp;&rarr;</a></p>
 
             <!-- Filters -->
             <div class="lb-filters">
@@ -190,8 +191,10 @@
                 <span class="lb-filter-sep"></span>
                 <div class="lb-filter-group">
                     <span class="lb-filter-label">Tasks</span>
-                    <label class="lb-chip"><input type="checkbox" id="filter-gui-only" checked><span>GUI-Only</span></label>
-                    <label class="lb-chip"><input type="checkbox" id="filter-user-int" checked><span>User-Int.</span></label>
+                    <label class="lb-chip"><input type="checkbox" id="filter-gui-only"
+                            checked><span>GUI-Only</span></label>
+                    <label class="lb-chip"><input type="checkbox" id="filter-user-int"
+                            checked><span>User-Int.</span></label>
                     <label class="lb-chip"><input type="checkbox" id="filter-mcp" checked><span>MCP</span></label>
                 </div>
                 <button class="lb-clear" id="clear-filters">Reset</button>
@@ -205,20 +208,16 @@
                             <th style="width:42px;">#</th>
                             <th style="width:80px;">Type</th>
                             <th>Model</th>
-                            <th id="th-overall" class="has-text-centered sortable-header"
-                                data-sort="overall">
+                            <th id="th-overall" class="has-text-centered sortable-header" data-sort="overall">
                                 Overall <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th id="th-gui-only" class="has-text-centered sortable-header"
-                                data-sort="gui_only">
+                            <th id="th-gui-only" class="has-text-centered sortable-header" data-sort="gui_only">
                                 GUI-Only <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th id="th-user-int" class="has-text-centered sortable-header"
-                                data-sort="user_int">
+                            <th id="th-user-int" class="has-text-centered sortable-header" data-sort="user_int">
                                 User-Int. <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th id="th-mcp" class="has-text-centered sortable-header"
-                                data-sort="mcp">
+                            <th id="th-mcp" class="has-text-centered sortable-header" data-sort="mcp">
                                 MCP <i class="fas fa-sort sort-icon"></i>
                             </th>
                         </tr>
@@ -857,7 +856,7 @@
                                 <div class="model-name"><strong>${modelName}</strong>
                                     <button class="detail-btn" data-index="${sorted.indexOf(row)}" title="View details">
                                         <i class="fas fa-info-circle"></i>
-                                    </button>${row.traj_file ? `<button class="traj-btn" data-traj-file="${row.traj_file}" data-model="${row.model}" title="View trajectories"><i class="fas fa-route"></i></button>` : ''}
+                                    </button>${row.traj_file ? `<button class="traj-btn" data-traj-file="${row.traj_file}" data-model="${row.model}" title="View trajectories"><i class="fas fa-route"></i></button><a class="arena-link-btn" href="arena.html?model=${encodeURIComponent(row.model)}" title="Compare in Arena"><i class="fas fa-scale-balanced"></i></a>` : ''}
                                 </div>
                                 <div class="model-org">${row.organization}</div>
                                 <div class="model-date"><i class="far fa-calendar"></i> ${formatDate(row.date)}</div>
@@ -982,9 +981,14 @@
                     </dl>
                     ${row.traj_file ? `
                     <hr class="dm-hr">
-                    <button class="traj-open-btn" data-traj-file="${row.traj_file}" data-model="${row.model}">
-                        <i class="fas fa-route"></i> View Trajectories
-                    </button>` : ''}
+                    <div class="dm-actions">
+                        <button class="traj-open-btn" data-traj-file="${row.traj_file}" data-model="${row.model}">
+                            <i class="fas fa-route"></i> View Trajectories
+                        </button>
+                        <a class="traj-open-btn" href="arena.html?model=${encodeURIComponent(row.model)}">
+                            <i class="fas fa-scale-balanced"></i> Compare in Arena
+                        </a>
+                    </div>` : ''}
                 `;
                 modal.classList.add('is-active');
 
@@ -1136,7 +1140,7 @@
                         const tu = task.token_usage;
                         trajSteps.innerHTML += `
                             <div class="traj-token-summary">
-                                Token usage: ${(tu.prompt_tokens||0).toLocaleString()} prompt · ${(tu.completion_tokens||0).toLocaleString()} completion · ${(tu.total_tokens||0).toLocaleString()} total
+                                Token usage: ${(tu.prompt_tokens || 0).toLocaleString()} prompt · ${(tu.completion_tokens || 0).toLocaleString()} completion · ${(tu.total_tokens || 0).toLocaleString()} total
                             </div>
                         `;
                     }
