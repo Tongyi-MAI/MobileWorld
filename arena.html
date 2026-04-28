@@ -49,6 +49,32 @@
                             <span class="icon"><i class="fab fa-github"></i></span>
                             <span>Code</span>
                         </a>
+                        <div class="dropdown is-hoverable is-right" id="cite-dropdown">
+                            <div class="dropdown-trigger">
+                                <button class="button is-small is-dark" aria-haspopup="true" aria-controls="cite-menu">
+                                    <span class="icon"><i class="fas fa-quote-right"></i></span>
+                                    <span>Cite</span>
+                                </button>
+                            </div>
+                            <div class="dropdown-menu" id="cite-menu" role="menu">
+                                <div class="dropdown-content cite-dropdown-content">
+                                    <div class="dropdown-item">
+                                        <p class="is-size-7 has-text-weight-semibold mb-2">BibTeX</p>
+                                        <pre class="cite-bibtex"><code>@inproceedings{kong2025mobileworld,
+      title={MobileWorld: Benchmarking Autonomous Mobile Agents in Agent-User Interactive, and MCP-Augmented Environments},
+      author={Quyu Kong and Xu Zhang and Zhenyu Yang and Nolan Gao and Chen Liu and Panrong Tong and Chenglin Cai and Hanzhang Zhou and Jianan Zhang and Liangyu Chen and Zhidan Liu and Steven Hoi and Yue Wang},
+      booktitle={Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (ACL)},
+      year={2026},
+      url={https://arxiv.org/abs/2512.19432},
+}</code></pre>
+                                        <button class="button is-small is-fullwidth mt-2" id="copy-cite-btn">
+                                            <span class="icon"><i class="fas fa-copy"></i></span>
+                                            <span>Copy</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -89,7 +115,11 @@
 
         <!-- Loading -->
         <div class="arena-loading" id="arena-loading" style="display:none">
-            <i class="fas fa-spinner fa-spin"></i> Loading trajectories&hellip;
+            <div><i class="fas fa-spinner fa-spin"></i> <span id="arena-loading-text">Loading
+                    trajectories&hellip;</span></div>
+            <div class="traj-progress-wrap" id="arena-progress-wrap" style="display:none">
+                <div class="traj-progress-bar" id="arena-progress-bar"></div>
+            </div>
         </div>
 
         <!-- Confusion Matrix + Task List (hidden until both models loaded) -->
@@ -225,16 +255,15 @@
                 });
             });
 
-            // Pre-select from query param (e.g. ?model=Claude-Opus-4.7)
-            const urlModel = new URLSearchParams(window.location.search).get('model');
-            if (urlModel && modelsWithTraj.some(m => m.model === urlModel)) {
-                selA.value = urlModel;
-            }
+            // URL params are applied later (see applyUrlParams below) once all
+            // helper functions and event listeners are registered.
 
             // ── State ──
             const trajCache = {};
             let dataA = null, dataB = null;
             let modelInfoA = null, modelInfoB = null;
+            let trajMetaA = null, trajMetaB = null;
+            let videoA = null, videoB = null;
             let currentFilter = null; // 'pp' | 'pf' | 'fp' | 'ff' | null (all)
             let taskOutcomes = {};    // { taskName: { a: bool, b: bool } }
             let allTaskNames = [];
@@ -256,12 +285,24 @@
                 return getScore(resultStr) === 1;
             }
 
-            async function fetchGzipJson(url) {
+            async function fetchGzipJson(url, onProgress) {
                 if (trajCache[url]) return trajCache[url];
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const total = parseInt(resp.headers.get('content-length') || '0', 10);
+                let loaded = 0;
+                const rawChunks = [];
+                const rawReader = resp.body.getReader();
+                while (true) {
+                    const { done, value } = await rawReader.read();
+                    if (done) break;
+                    rawChunks.push(value);
+                    loaded += value.byteLength;
+                    if (onProgress && total) onProgress(loaded / total);
+                }
+                const rawBlob = new Blob(rawChunks);
                 const ds = new DecompressionStream('gzip');
-                const decompressed = resp.body.pipeThrough(ds);
+                const decompressed = rawBlob.stream().pipeThrough(ds);
                 const reader = decompressed.getReader();
                 const chunks = [];
                 while (true) {
@@ -274,6 +315,104 @@
                 const data = JSON.parse(text);
                 trajCache[url] = data;
                 return data;
+            }
+
+            // ── Screenshot video utilities ──
+            const videoElCache = {};
+
+            function loadVideo(url, onProgress) {
+                if (videoElCache[url]) return videoElCache[url];
+                const promise = (async () => {
+                    const resp = await fetch(url);
+                    if (!resp.ok) throw new Error(`Video HTTP ${resp.status}`);
+                    const total = parseInt(resp.headers.get('content-length') || '0', 10);
+                    let loaded = 0;
+                    const chunks = [];
+                    const reader = resp.body.getReader();
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        loaded += value.byteLength;
+                        if (onProgress && total) onProgress(loaded / total);
+                    }
+                    const blob = new Blob(chunks, { type: 'video/mp4' });
+                    const blobUrl = URL.createObjectURL(blob);
+                    const video = document.createElement('video');
+                    video.preload = 'auto';
+                    video.muted = true;
+                    video.playsInline = true;
+                    video.src = blobUrl;
+                    await new Promise((res, rej) => {
+                        video.addEventListener('loadeddata', res, { once: true });
+                        video.addEventListener('error', rej, { once: true });
+                    });
+                    return video;
+                })();
+                videoElCache[url] = promise;
+                return promise;
+            }
+
+            function extractFrame(video, frameIndex, fps) {
+                return new Promise((resolve) => {
+                    const targetTime = (frameIndex + 0.25) / fps;
+                    if (Math.abs(video.currentTime - targetTime) < 0.01) {
+                        resolve(video);
+                        return;
+                    }
+                    video.addEventListener('seeked', () => resolve(video), { once: true });
+                    video.currentTime = targetTime;
+                });
+            }
+
+            function drawActionOverlay(ctx, action, scaleX, scaleY) {
+                const actionType = action.action_type;
+                if (['click', 'double_tap', 'long_press'].includes(actionType)) {
+                    const x = action.x * scaleX, y = action.y * scaleY;
+                    const r = 16 * scaleX;
+                    ctx.beginPath();
+                    ctx.arc(x, y, r, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else if (actionType === 'drag') {
+                    const sx = action.start_x * scaleX, sy = action.start_y * scaleY;
+                    const ex = action.end_x * scaleX, ey = action.end_y * scaleY;
+                    if (sx != null && sy != null && ex != null && ey != null) {
+                        ctx.beginPath();
+                        ctx.moveTo(sx, sy);
+                        ctx.lineTo(ex, ey);
+                        ctx.strokeStyle = 'rgba(0, 100, 255, 0.7)';
+                        ctx.lineWidth = 3 * scaleX;
+                        ctx.stroke();
+                        const r = 12 * scaleX;
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(0, 180, 0, 0.6)';
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(ex, ey, r, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
+                        ctx.fill();
+                    }
+                }
+            }
+
+            async function renderScreenshotCanvas(canvas, video, frameIndex, fps, meta, action) {
+                await extractFrame(video, frameIndex, fps);
+                const dw = meta.display_width;
+                const dh = meta.display_height;
+                canvas.width = dw;
+                canvas.height = dh;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, dw, dh);
+                if (action) {
+                    const scaleX = dw / meta.original_width;
+                    const scaleY = dh / meta.original_height;
+                    drawActionOverlay(ctx, action, scaleX, scaleY);
+                }
             }
 
             function formatMeta(info) {
@@ -323,19 +462,55 @@
                 }
                 metaB.style.color = '';
 
-                document.getElementById('arena-loading').style.display = 'flex';
+                const arenaLoadingEl = document.getElementById('arena-loading');
+                arenaLoadingEl.innerHTML = '<div><i class="fas fa-spinner fa-spin"></i> <span id="arena-loading-text">Downloading trajectory data…</span></div><div class="traj-progress-wrap" id="arena-progress-wrap"><div class="traj-progress-bar" id="arena-progress-bar"></div></div>';
+                arenaLoadingEl.style.display = 'flex';
+                const arenaLoadingText = document.getElementById('arena-loading-text');
+                const arenaProgressBar = document.getElementById('arena-progress-bar');
                 document.getElementById('arena-content').style.display = 'none';
+
+                let progressA = 0, progressB = 0;
+                function updateArenaProgress() {
+                    arenaProgressBar.style.width = ((progressA + progressB) / 2 * 50).toFixed(1) + '%';
+                }
 
                 try {
                     [dataA, dataB] = await Promise.all([
-                        fetchGzipJson(modelInfoA.traj_file),
-                        fetchGzipJson(modelInfoB.traj_file)
+                        fetchGzipJson(modelInfoA.traj_file, (p) => { progressA = p; updateArenaProgress(); }),
+                        fetchGzipJson(modelInfoB.traj_file, (p) => { progressB = p; updateArenaProgress(); })
                     ]);
                 } catch (err) {
-                    document.getElementById('arena-loading').innerHTML =
+                    arenaLoadingEl.innerHTML =
                         `<i class="fas fa-exclamation-triangle"></i> Failed to load: ${err.message}`;
                     return;
                 }
+
+                trajMetaA = dataA._meta || null;
+                trajMetaB = dataB._meta || null;
+                videoA = null; videoB = null;
+                const videoLoads = [];
+                let vidProgressA = 0, vidProgressB = 0;
+                function updateVidProgress() {
+                    const count = (trajMetaA?.video_file ? 1 : 0) + (trajMetaB?.video_file ? 1 : 0);
+                    if (!count) return;
+                    const avg = (vidProgressA + vidProgressB) / count;
+                    arenaProgressBar.style.width = (50 + avg * 50).toFixed(1) + '%';
+                }
+                if (trajMetaA && trajMetaA.video_file) {
+                    arenaLoadingText.textContent = 'Downloading screenshots…';
+                    const url = trajMetaA.video_file.startsWith('http')
+                        ? trajMetaA.video_file
+                        : modelInfoA.traj_file.replace(/[^/]+$/, '') + trajMetaA.video_file;
+                    videoLoads.push(loadVideo(url, (p) => { vidProgressA = p; updateVidProgress(); }).then(v => { videoA = v; }).catch(() => { }));
+                }
+                if (trajMetaB && trajMetaB.video_file) {
+                    arenaLoadingText.textContent = 'Downloading screenshots…';
+                    const url = trajMetaB.video_file.startsWith('http')
+                        ? trajMetaB.video_file
+                        : modelInfoB.traj_file.replace(/[^/]+$/, '') + trajMetaB.video_file;
+                    videoLoads.push(loadVideo(url, (p) => { vidProgressB = p; updateVidProgress(); }).then(v => { videoB = v; }).catch(() => { }));
+                }
+                await Promise.all(videoLoads);
 
                 document.getElementById('arena-loading').style.display = 'none';
                 document.getElementById('arena-content').style.display = '';
@@ -355,8 +530,8 @@
             // ── Build outcome map ──
             function buildOutcomes() {
                 taskOutcomes = {};
-                const keysA = new Set(Object.keys(dataA));
-                const keysB = new Set(Object.keys(dataB));
+                const keysA = new Set(Object.keys(dataA).filter(k => k !== '_meta'));
+                const keysB = new Set(Object.keys(dataB).filter(k => k !== '_meta'));
                 allTaskNames = [...new Set([...keysA, ...keysB])].sort();
 
                 allTaskNames.forEach(name => {
@@ -523,8 +698,24 @@
                 document.getElementById('arena-col-b-steps').textContent = `${(taskB?.traj || []).length} steps`;
 
                 // Render steps
-                document.getElementById('arena-col-a-body').innerHTML = renderSteps(taskA);
-                document.getElementById('arena-col-b-body').innerHTML = renderSteps(taskB);
+                document.getElementById('arena-col-a-body').innerHTML = renderSteps(taskA, 'a');
+                document.getElementById('arena-col-b-body').innerHTML = renderSteps(taskB, 'b');
+
+                // Render screenshot frames
+                async function renderSideCanvases(containerId, vid, meta, task) {
+                    if (!vid || !meta || !task) return;
+                    const canvases = document.getElementById(containerId).querySelectorAll('.traj-canvas');
+                    for (const canvas of canvases) {
+                        const fi = parseInt(canvas.dataset.frame);
+                        const si = parseInt(canvas.dataset.step);
+                        const action = task.traj[si]?.action || null;
+                        await renderScreenshotCanvas(canvas, vid, fi, meta.fps, meta, action);
+                    }
+                }
+                Promise.all([
+                    renderSideCanvases('arena-col-a-body', videoA, trajMetaA, taskA),
+                    renderSideCanvases('arena-col-b-body', videoB, trajMetaB, taskB),
+                ]);
 
                 // Token usage
                 renderTokens('arena-col-a-tokens', taskA?.token_usage);
@@ -539,10 +730,12 @@
                 el.className = 'arena-col-badge ' + (pass ? 'arena-col-badge--pass' : 'arena-col-badge--fail');
             }
 
-            function renderSteps(task) {
+            function renderSteps(task, side) {
                 if (!task || !task.traj || task.traj.length === 0) {
                     return '<div class="arena-empty">No trajectory data.</div>';
                 }
+                const meta = side === 'a' ? trajMetaA : trajMetaB;
+                const vid = side === 'a' ? videoA : videoB;
                 return task.traj.map((step, i) => {
                     const pred = step.prediction || '';
 
@@ -555,6 +748,11 @@
                     if (action.direction)
                         actionStr += ` ${action.direction}`;
 
+                    const hasFrame = step.frame_index !== undefined && vid && meta;
+                    const screenshotHtml = hasFrame
+                        ? `<div class="traj-screenshot"><canvas class="traj-canvas" data-frame="${step.frame_index}" data-step="${i}" data-side="${side}"></canvas></div>`
+                        : '';
+
                     const askUser = step.ask_user_response
                         ? `<div class="traj-ask-user"><span class="traj-ask-label">User Response</span><span>${escHtml(step.ask_user_response)}</span></div>`
                         : '';
@@ -563,11 +761,12 @@
                         : '';
 
                     return `
-                    <div class="traj-step">
+                    <div class="traj-step" data-step="${i}" data-side="${side}">
                         <div class="traj-step-header">
                             <span class="traj-step-num">Step ${step.step || i + 1}</span>
                             <span class="traj-action-badge">${escHtml(actionStr)}</span>
                         </div>
+                        ${screenshotHtml}
                         ${pred ? `<div class="traj-response">${escHtml(pred)}</div>` : ''}
                         ${askUser}
                         ${toolCall}
@@ -581,6 +780,135 @@
                 if (!tu) { el.textContent = ''; return; }
                 el.textContent = `${(tu.prompt_tokens || 0).toLocaleString()} prompt · ${(tu.completion_tokens || 0).toLocaleString()} completion · ${(tu.total_tokens || 0).toLocaleString()} total`;
             }
+
+            // Click-to-zoom on screenshot canvases
+            document.addEventListener('click', (e) => {
+                const canvas = e.target.closest('.traj-canvas');
+                if (!canvas) return;
+                const overlay = document.createElement('div');
+                overlay.className = 'traj-screenshot-overlay';
+                const big = document.createElement('canvas');
+                big.width = canvas.width * 2;
+                big.height = canvas.height * 2;
+                const ctx = big.getContext('2d');
+                ctx.drawImage(canvas, 0, 0, big.width, big.height);
+                overlay.appendChild(big);
+                overlay.addEventListener('click', () => overlay.remove());
+                document.body.appendChild(overlay);
+            });
+
+            // ── URL-param deep-linking ──
+            // Supports: ?modelA=…&modelB=…&task=…&filter=pp|pf|fp|ff&category=…&step=N
+            // Legacy: ?model=…  (alias for modelA)
+            async function applyUrlParams() {
+                const params = new URLSearchParams(window.location.search);
+                const modelA = params.get('modelA') || params.get('model');
+                const modelB = params.get('modelB');
+                const task = params.get('task');
+                const filter = params.get('filter');
+                const category = params.get('category');
+                const stepRaw = params.get('step');
+
+                // 1) Pre-select model dropdowns. Validate against known models.
+                const knownModel = (n) => n && modelsWithTraj.some(m => m.model === n);
+                if (modelA) {
+                    if (knownModel(modelA)) selA.value = modelA;
+                    else console.warn(`[arena] Unknown modelA in URL: ${modelA}`);
+                }
+                if (modelB) {
+                    if (knownModel(modelB)) selB.value = modelB;
+                    else console.warn(`[arena] Unknown modelB in URL: ${modelB}`);
+                }
+
+                // If we don't have both models selected, nothing more to do —
+                // onModelChange would just hide arena-content.
+                if (!selA.value || !selB.value || selA.value === selB.value) return;
+
+                // 2) Trigger model-change pipeline and wait for trajectories +
+                // videos to load. onModelChange is already async.
+                try {
+                    await onModelChange();
+                } catch (err) {
+                    console.warn('[arena] onModelChange failed during URL-param expansion:', err);
+                    return;
+                }
+
+                // If load failed, arena-content stays hidden — bail out.
+                if (document.getElementById('arena-content').style.display === 'none') return;
+
+                // 3) Apply outcome filter and category filter.
+                if (filter) {
+                    if (['pp', 'pf', 'fp', 'ff'].includes(filter)) {
+                        currentFilter = filter;
+                        highlightMatrixCell(currentFilter);
+                    } else {
+                        console.warn(`[arena] Invalid filter in URL: ${filter}`);
+                    }
+                }
+                if (category) {
+                    const catSelect = document.getElementById('arena-category-filter');
+                    const hasCat = Array.from(catSelect.options).some(o => o.value === category);
+                    if (hasCat) catSelect.value = category;
+                    else console.warn(`[arena] Unknown category in URL: ${category}`);
+                }
+
+                // 4) Re-render task list with the applied filters.
+                renderTaskList();
+
+                // 5) Open the requested task comparison.
+                if (task) {
+                    const safeTask = task.replace(/"/g, '\\"');
+                    let row = document.querySelector(`.arena-task-row[data-task="${safeTask}"]`);
+                    if (!row) {
+                        // Task may be filtered out — try without filters as a fallback.
+                        if (taskOutcomes[task]) {
+                            currentFilter = null;
+                            highlightMatrixCell(null);
+                            const catSelect = document.getElementById('arena-category-filter');
+                            catSelect.value = 'all';
+                            renderTaskList();
+                            row = document.querySelector(`.arena-task-row[data-task="${safeTask}"]`);
+                        }
+                    }
+                    if (!row) {
+                        console.warn(`[arena] Task not found in URL: ${task}`);
+                        return;
+                    }
+                    row.click();  // synchronously calls renderComparison
+
+                    // 6) If a step is requested, scroll it into view + flash highlight.
+                    if (stepRaw != null) {
+                        const stepIdx = parseInt(stepRaw, 10) - 1;  // URL is 1-indexed
+                        if (!Number.isFinite(stepIdx) || stepIdx < 0) {
+                            console.warn(`[arena] Invalid step in URL: ${stepRaw}`);
+                            return;
+                        }
+                        // Prefer the left (Model A) pane; fall back to right.
+                        let stepEl = document.querySelector(
+                            `#arena-col-a-body .traj-step[data-step="${stepIdx}"]`
+                        );
+                        if (!stepEl) {
+                            stepEl = document.querySelector(
+                                `#arena-col-b-body .traj-step[data-step="${stepIdx}"]`
+                            );
+                        }
+                        if (!stepEl) {
+                            console.warn(`[arena] Step ${stepRaw} out of range for task ${task}`);
+                            return;
+                        }
+                        // Defer slightly so layout settles after renderComparison.
+                        setTimeout(() => {
+                            stepEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                            stepEl.classList.add('url-target-step');
+                            setTimeout(() => stepEl.classList.remove('url-target-step'), 2000);
+                        }, 100);
+                    }
+                }
+            }
+
+            applyUrlParams().catch(err => {
+                console.warn('[arena] applyUrlParams failed:', err);
+            });
         });
     </script>
 </body>

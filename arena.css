@@ -70,6 +70,7 @@
 /* ── Loading ── */
 .arena-loading {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
@@ -436,4 +437,11 @@
         flex-direction: column;
         gap: 0.2rem;
     }
+}
+
+/* ── URL deep-link target highlight ── */
+.traj-step.url-target-step {
+    outline: 3px solid #f5a623;
+    background: rgba(245, 166, 35, 0.10);
+    transition: outline 0.3s ease, background 0.3s ease;
 }

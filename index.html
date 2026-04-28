@@ -174,7 +174,7 @@
             <h2 class="title is-3">Leaderboard</h2>
             <p class="lb-desc">Success rate (%) on MobileWorld, weighted by task counts across GUI-Only (117),
                 User-Interaction (44), and MCP (40) tasks. All results evaluated with max steps&nbsp;=&nbsp;50. <a
-                    href="mailto:kongquyu.kqy@alibaba-inc.com">Submit your results&nbsp;&rarr;</a></p>
+                    href="#" id="submit-results-link">Submit your results&nbsp;&rarr;</a></p>
 
             <!-- Filters -->
             <div class="lb-filters">
@@ -510,9 +510,56 @@
             </div>
             <div class="traj-body" id="traj-body">
                 <div class="traj-loading" id="traj-loading">
-                    <i class="fas fa-spinner fa-spin"></i> Loading trajectories&hellip;
+                    <div><i class="fas fa-spinner fa-spin"></i> <span id="traj-loading-text">Loading
+                            trajectories&hellip;</span></div>
+                    <div class="traj-progress-wrap" id="traj-progress-wrap" style="display:none">
+                        <div class="traj-progress-bar" id="traj-progress-bar"></div>
+                    </div>
                 </div>
                 <div class="traj-steps" id="traj-steps"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submission Instructions Modal -->
+    <div class="modal" id="submit-modal">
+        <div class="modal-background"></div>
+        <div class="dm submit-dm" role="dialog" aria-labelledby="submit-modal-title">
+            <button class="dm-close" aria-label="close" id="submit-modal-close">&times;</button>
+            <div class="submit-dm-header">
+                <h2 class="dm-title" id="submit-modal-title">Submit Your Results</h2>
+                <p class="submit-intro">To appear on the MobileWorld leaderboard, complete the steps below.</p>
+            </div>
+            <div class="submit-dm-body">
+                <div class="submit-step">
+                    <div class="submit-step-num">1</div>
+                    <div class="submit-step-body">
+                        <strong>Run evaluation</strong>
+                        <pre><code>uv run mw eval --agent &lt;your_agent_module&gt; --tasks all</code></pre>
+                        <p>Trajectory logs are written to <code>traj_logs/&lt;run-name&gt;/</code>.</p>
+                    </div>
+                </div>
+                <div class="submit-step">
+                    <div class="submit-step-num">2</div>
+                    <div class="submit-step-body">
+                        <strong>Bundle trajectories with <code>bundle_trajs.py</code></strong>
+                        <pre><code>python site/bundle_trajs.py traj_logs/&lt;run-name&gt;/ --with-screenshots</code></pre>
+                        <p>Produces <code>site/trajs/&lt;run-name&gt;.json.gz</code> and <code>.mp4</code>.</p>
+                    </div>
+                </div>
+                <div class="submit-step">
+                    <div class="submit-step-num">3</div>
+                    <div class="submit-step-body">
+                        <strong>Send your results</strong>
+                        <p>Email the files below to <a
+                                href="mailto:kongquyu.kqy@alibaba-inc.com">kongquyu.kqy@alibaba-inc.com</a> along
+                            with your model / system name and any paper or report links.</p>
+                        <ul>
+                            <li><code>&lt;run-name&gt;.json.gz</code></li>
+                            <li><code>&lt;run-name&gt;.mp4</code></li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -820,15 +867,7 @@
                     const rowClass = isFirst ? 'first-rank-row' : '';
                     const starIcon = isFirst ? ' ⭐' : '';
 
-                    // Create clickable model name with link
-                    let modelName = row.model;
-                    if (row.link && row.link !== '#') {
-                        let href = row.link;
-                        if (!href.startsWith('http://') && !href.startsWith('https://')) {
-                            href = 'https://' + href;
-                        }
-                        modelName = `<a href="${href}" class="model-link" target="_blank" rel="noopener noreferrer">${row.model}</a>`;
-                    }
+                    const modelName = row.model;
 
                     // Category badge class
                     const categoryClass = row.model_type === 'Agentic Framework' ? 'tag is-info is-light' : 'tag is-link is-light';
@@ -853,10 +892,8 @@
                             <td class="has-text-centered"><strong>${rank}</strong></td>
                             <td><span class="category-badge ${categoryClass}">${categoryLabel}</span></td>
                             <td class="model-cell">
-                                <div class="model-name"><strong>${modelName}</strong>
-                                    <button class="detail-btn" data-index="${sorted.indexOf(row)}" title="View details">
-                                        <i class="fas fa-info-circle"></i>
-                                    </button>${row.traj_file ? `<button class="traj-btn" data-traj-file="${row.traj_file}" data-model="${row.model}" title="View trajectories"><i class="fas fa-route"></i></button><a class="arena-link-btn" href="arena.html?model=${encodeURIComponent(row.model)}" title="Compare in Arena"><i class="fas fa-scale-balanced"></i></a>` : ''}
+                                <div class="model-name"><strong><a href="#" class="model-name-link" data-index="${sorted.indexOf(row)}">${modelName}</a></strong>
+                                    ${row.traj_file ? `<button class="traj-btn" data-traj-file="${row.traj_file}" data-model="${row.model}" title="View trajectories"><i class="fas fa-route"></i></button><a class="arena-link-btn" href="arena?model=${encodeURIComponent(row.model)}" title="Compare in Arena"><i class="fas fa-scale-balanced"></i></a>` : ''}
                                 </div>
                                 <div class="model-org">${row.organization}</div>
                                 <div class="model-date"><i class="far fa-calendar"></i> ${formatDate(row.date)}</div>
@@ -870,11 +907,12 @@
                     `;
                 }).join('');
 
-                // Attach detail button click handlers
-                tbody.querySelectorAll('.detail-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
+                // Attach model name click handlers
+                tbody.querySelectorAll('.model-name-link').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
                         e.stopPropagation();
-                        const idx = parseInt(btn.dataset.index);
+                        const idx = parseInt(link.dataset.index);
                         const row = sorted[idx];
                         openDetailModal(row);
                     });
@@ -985,7 +1023,7 @@
                         <button class="traj-open-btn" data-traj-file="${row.traj_file}" data-model="${row.model}">
                             <i class="fas fa-route"></i> View Trajectories
                         </button>
-                        <a class="traj-open-btn" href="arena.html?model=${encodeURIComponent(row.model)}">
+                        <a class="traj-open-btn" href="arena?model=${encodeURIComponent(row.model)}">
                             <i class="fas fa-scale-balanced"></i> Compare in Arena
                         </a>
                     </div>` : ''}
@@ -1010,9 +1048,19 @@
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     if (trajModal.classList.contains('is-active')) closeTrajModal();
+                    else if (submitModal.classList.contains('is-active')) submitModal.classList.remove('is-active');
                     else closeDetailModal();
                 }
             });
+
+            // ── Submission modal ──
+            const submitModal = document.getElementById('submit-modal');
+            document.getElementById('submit-results-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                submitModal.classList.add('is-active');
+            });
+            document.getElementById('submit-modal-close').addEventListener('click', () => submitModal.classList.remove('is-active'));
+            submitModal.querySelector('.modal-background').addEventListener('click', () => submitModal.classList.remove('is-active'));
 
             // ── Trajectory Viewer ──
             const trajModal = document.getElementById('traj-modal');
@@ -1026,11 +1074,23 @@
 
             const trajCache = {};
 
-            async function fetchGzipJson(url) {
+            async function fetchGzipJson(url, onProgress) {
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const total = parseInt(resp.headers.get('content-length') || '0', 10);
+                let loaded = 0;
+                const rawChunks = [];
+                const rawReader = resp.body.getReader();
+                while (true) {
+                    const { done, value } = await rawReader.read();
+                    if (done) break;
+                    rawChunks.push(value);
+                    loaded += value.byteLength;
+                    if (onProgress && total) onProgress(loaded / total);
+                }
+                const rawBlob = new Blob(rawChunks);
                 const ds = new DecompressionStream('gzip');
-                const decompressed = resp.body.pipeThrough(ds);
+                const decompressed = rawBlob.stream().pipeThrough(ds);
                 const reader = decompressed.getReader();
                 const chunks = [];
                 while (true) {
@@ -1043,6 +1103,105 @@
                 return JSON.parse(text);
             }
 
+            // ── Screenshot video utilities ──
+            const videoCache = {};
+
+            function loadVideo(url, onProgress) {
+                if (videoCache[url]) return videoCache[url];
+                const promise = (async () => {
+                    const resp = await fetch(url);
+                    if (!resp.ok) throw new Error(`Video HTTP ${resp.status}`);
+                    const total = parseInt(resp.headers.get('content-length') || '0', 10);
+                    let loaded = 0;
+                    const chunks = [];
+                    const reader = resp.body.getReader();
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        loaded += value.byteLength;
+                        if (onProgress && total) onProgress(loaded / total);
+                    }
+                    const blob = new Blob(chunks, { type: 'video/mp4' });
+                    const blobUrl = URL.createObjectURL(blob);
+                    const video = document.createElement('video');
+                    video.preload = 'auto';
+                    video.muted = true;
+                    video.playsInline = true;
+                    video.src = blobUrl;
+                    await new Promise((res, rej) => {
+                        video.addEventListener('loadeddata', res, { once: true });
+                        video.addEventListener('error', rej, { once: true });
+                    });
+                    return video;
+                })();
+                videoCache[url] = promise;
+                return promise;
+            }
+
+            function extractFrame(video, frameIndex, fps) {
+                return new Promise((resolve) => {
+                    const targetTime = (frameIndex + 0.25) / fps;
+                    if (Math.abs(video.currentTime - targetTime) < 0.01) {
+                        resolve(video);
+                        return;
+                    }
+                    video.addEventListener('seeked', () => resolve(video), { once: true });
+                    video.currentTime = targetTime;
+                });
+            }
+
+            function drawActionOverlay(ctx, action, scaleX, scaleY) {
+                const actionType = action.action_type;
+                if (['click', 'double_tap', 'long_press'].includes(actionType)) {
+                    const x = action.x * scaleX;
+                    const y = action.y * scaleY;
+                    const r = 16 * scaleX;
+                    ctx.beginPath();
+                    ctx.arc(x, y, r, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else if (actionType === 'drag') {
+                    const sx = action.start_x * scaleX, sy = action.start_y * scaleY;
+                    const ex = action.end_x * scaleX, ey = action.end_y * scaleY;
+                    if (sx != null && sy != null && ex != null && ey != null) {
+                        ctx.beginPath();
+                        ctx.moveTo(sx, sy);
+                        ctx.lineTo(ex, ey);
+                        ctx.strokeStyle = 'rgba(0, 100, 255, 0.7)';
+                        ctx.lineWidth = 3 * scaleX;
+                        ctx.stroke();
+                        const r = 12 * scaleX;
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(0, 180, 0, 0.6)';
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(ex, ey, r, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
+                        ctx.fill();
+                    }
+                }
+            }
+
+            async function renderScreenshotCanvas(canvas, video, frameIndex, fps, meta, action) {
+                await extractFrame(video, frameIndex, fps);
+                const dw = meta.display_width;
+                const dh = meta.display_height;
+                canvas.width = dw;
+                canvas.height = dh;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, dw, dh);
+                if (action) {
+                    const scaleX = dw / meta.original_width;
+                    const scaleY = dh / meta.original_height;
+                    drawActionOverlay(ctx, action, scaleX, scaleY);
+                }
+            }
+
             async function openTrajModal(trajFile, modelName) {
                 trajModelName.textContent = modelName + ' — Trajectories';
                 trajTaskSelect.innerHTML = '';
@@ -1051,21 +1210,48 @@
                 trajLoading.style.display = 'flex';
                 trajModal.classList.add('is-active');
 
+                const loadingText = document.getElementById('traj-loading-text');
+                const progressWrap = document.getElementById('traj-progress-wrap');
+                const progressBar = document.getElementById('traj-progress-bar');
+                loadingText.textContent = 'Loading trajectories…';
+                progressWrap.style.display = 'none';
+                progressBar.style.width = '0%';
+
                 let data;
                 if (trajCache[trajFile]) {
                     data = trajCache[trajFile];
                 } else {
                     try {
-                        data = await fetchGzipJson(trajFile);
+                        progressWrap.style.display = '';
+                        loadingText.textContent = 'Downloading trajectory data…';
+                        data = await fetchGzipJson(trajFile, (pct) => {
+                            progressBar.style.width = (pct * 50).toFixed(1) + '%';
+                        });
                         trajCache[trajFile] = data;
                     } catch (err) {
                         trajLoading.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Failed to load: ${err.message}`;
                         return;
                     }
                 }
+
+                const meta = data._meta || null;
+                let videoEl = null;
+                if (meta && meta.video_file) {
+                    const videoUrl = meta.video_file.startsWith('http')
+                        ? meta.video_file
+                        : trajFile.replace(/[^/]+$/, '') + meta.video_file;
+                    try {
+                        loadingText.textContent = 'Downloading screenshots…';
+                        progressWrap.style.display = '';
+                        videoEl = await loadVideo(videoUrl, (pct) => {
+                            progressBar.style.width = (50 + pct * 50).toFixed(1) + '%';
+                        });
+                    } catch (e) { console.warn('Video load failed:', e); }
+                }
+
                 trajLoading.style.display = 'none';
 
-                const taskNames = Object.keys(data).sort();
+                const taskNames = Object.keys(data).filter(k => k !== '_meta').sort();
                 taskNames.forEach(name => {
                     const opt = document.createElement('option');
                     opt.value = name;
@@ -1077,7 +1263,6 @@
                     const task = data[taskName];
                     if (!task) return;
 
-                    // Result badge
                     if (task.result) {
                         const scoreMatch = task.result.match(/score:\s*([\d.]+)/);
                         const score = scoreMatch ? parseFloat(scoreMatch[1]) : null;
@@ -1091,7 +1276,7 @@
                     const steps = task.traj || [];
                     const taskGoal = steps.length > 0 && steps[0].task_goal
                         ? `<div class="traj-goal"><span class="traj-goal-label">Task Goal</span>${escHtml(steps[0].task_goal)}</div>` : '';
-                    trajSteps.innerHTML = taskGoal + steps.map((step, i) => {
+                    let html = taskGoal + steps.map((step, i) => {
                         const pred = step.prediction || '';
                         let think = '', response = '';
                         const thinkMatch = pred.match(/<think>([\s\S]*?)<\/think>/);
@@ -1114,6 +1299,11 @@
                             actionStr += ` ${action.direction}`;
                         }
 
+                        const hasFrame = step.frame_index !== undefined && videoEl && meta;
+                        const screenshotHtml = hasFrame
+                            ? `<div class="traj-screenshot"><canvas class="traj-canvas" data-frame="${step.frame_index}" data-step="${i}"></canvas></div>`
+                            : '';
+
                         const askUser = step.ask_user_response
                             ? `<div class="traj-ask-user"><span class="traj-ask-label">User Response</span><span>${escHtml(step.ask_user_response)}</span></div>`
                             : '';
@@ -1128,6 +1318,7 @@
                                     <span class="traj-step-num">Step ${step.step || i + 1}</span>
                                     <span class="traj-action-badge">${escHtml(actionStr)}</span>
                                 </div>
+                                ${screenshotHtml}
                                 ${think ? `<details class="traj-think"><summary>Thinking</summary><div class="traj-think-body">${escHtml(think)}</div></details>` : ''}
                                 ${response ? `<div class="traj-response">${escHtml(response)}</div>` : ''}
                                 ${askUser}
@@ -1138,11 +1329,26 @@
 
                     if (task.token_usage) {
                         const tu = task.token_usage;
-                        trajSteps.innerHTML += `
+                        html += `
                             <div class="traj-token-summary">
                                 Token usage: ${(tu.prompt_tokens || 0).toLocaleString()} prompt · ${(tu.completion_tokens || 0).toLocaleString()} completion · ${(tu.total_tokens || 0).toLocaleString()} total
                             </div>
                         `;
+                    }
+
+                    trajSteps.innerHTML = html;
+
+                    // Render screenshot frames into canvases (sequentially to avoid seek races)
+                    if (videoEl && meta) {
+                        (async () => {
+                            const canvases = trajSteps.querySelectorAll('.traj-canvas');
+                            for (const canvas of canvases) {
+                                const fi = parseInt(canvas.dataset.frame);
+                                const si = parseInt(canvas.dataset.step);
+                                const stepAction = steps[si]?.action || null;
+                                await renderScreenshotCanvas(canvas, videoEl, fi, meta.fps, meta, stepAction);
+                            }
+                        })();
                     }
                 }
 
@@ -1155,6 +1361,22 @@
                 div.textContent = str;
                 return div.innerHTML;
             }
+
+            // Click-to-zoom on screenshot canvases
+            document.addEventListener('click', (e) => {
+                const canvas = e.target.closest('.traj-canvas');
+                if (!canvas) return;
+                const overlay = document.createElement('div');
+                overlay.className = 'traj-screenshot-overlay';
+                const big = document.createElement('canvas');
+                big.width = canvas.width * 2;
+                big.height = canvas.height * 2;
+                const ctx = big.getContext('2d');
+                ctx.drawImage(canvas, 0, 0, big.width, big.height);
+                overlay.appendChild(big);
+                overlay.addEventListener('click', () => overlay.remove());
+                document.body.appendChild(overlay);
+            });
 
             function closeTrajModal() {
                 trajModal.classList.remove('is-active');
