@@ -329,6 +329,12 @@
     margin-bottom: 0.5rem;
 }
 
+.arena-comparison-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .arena-comparison-close {
     background: none;
     border: none;

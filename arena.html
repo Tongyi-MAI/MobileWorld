@@ -177,9 +177,12 @@
             <div class="arena-comparison" id="arena-comparison" style="display:none">
                 <div class="arena-comparison-header">
                     <h2 class="arena-section-title" id="arena-comparison-title">Task Trajectory</h2>
-                    <button class="arena-comparison-close" id="arena-comparison-close">
-                        <i class="fas fa-times"></i>
-                    </button>
+                    <div class="arena-comparison-header-actions">
+                        <button type="button" class="traj-expand-all" id="arena-expand-all" style="display:none">Expand all</button>
+                        <button class="arena-comparison-close" id="arena-comparison-close">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="arena-task-goal" id="arena-task-goal"></div>
                 <div class="arena-comparison-columns">
@@ -264,9 +267,11 @@
             let modelInfoA = null, modelInfoB = null;
             let trajMetaA = null, trajMetaB = null;
             let videoA = null, videoB = null;
+            let videoPromiseA = null, videoPromiseB = null;
             let currentFilter = null; // 'pp' | 'pf' | 'fp' | 'ff' | null (all)
             let taskOutcomes = {};    // { taskName: { a: bool, b: bool } }
             let allTaskNames = [];
+            let arenaRenderGeneration = 0;
 
             // ── Helpers ──
             function escHtml(str) {
@@ -318,33 +323,22 @@
             }
 
             // ── Screenshot video utilities ──
+            // Point the <video> at the URL directly so frame seeks issue
+            // range requests for just that frame's bytes (mp4 is +faststart),
+            // letting screenshots render as soon as their bytes arrive instead
+            // of waiting for the whole file to download.
             const videoElCache = {};
 
-            function loadVideo(url, onProgress) {
+            function loadVideo(url) {
                 if (videoElCache[url]) return videoElCache[url];
                 const promise = (async () => {
-                    const resp = await fetch(url);
-                    if (!resp.ok) throw new Error(`Video HTTP ${resp.status}`);
-                    const total = parseInt(resp.headers.get('content-length') || '0', 10);
-                    let loaded = 0;
-                    const chunks = [];
-                    const reader = resp.body.getReader();
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        chunks.push(value);
-                        loaded += value.byteLength;
-                        if (onProgress && total) onProgress(loaded / total);
-                    }
-                    const blob = new Blob(chunks, { type: 'video/mp4' });
-                    const blobUrl = URL.createObjectURL(blob);
                     const video = document.createElement('video');
                     video.preload = 'auto';
                     video.muted = true;
                     video.playsInline = true;
-                    video.src = blobUrl;
+                    video.src = url;
                     await new Promise((res, rej) => {
-                        video.addEventListener('loadeddata', res, { once: true });
+                        video.addEventListener('loadedmetadata', res, { once: true });
                         video.addEventListener('error', rej, { once: true });
                     });
                     return video;
@@ -471,7 +465,7 @@
 
                 let progressA = 0, progressB = 0;
                 function updateArenaProgress() {
-                    arenaProgressBar.style.width = ((progressA + progressB) / 2 * 50).toFixed(1) + '%';
+                    arenaProgressBar.style.width = ((progressA + progressB) / 2 * 100).toFixed(1) + '%';
                 }
 
                 try {
@@ -488,29 +482,19 @@
                 trajMetaA = dataA._meta || null;
                 trajMetaB = dataB._meta || null;
                 videoA = null; videoB = null;
-                const videoLoads = [];
-                let vidProgressA = 0, vidProgressB = 0;
-                function updateVidProgress() {
-                    const count = (trajMetaA?.video_file ? 1 : 0) + (trajMetaB?.video_file ? 1 : 0);
-                    if (!count) return;
-                    const avg = (vidProgressA + vidProgressB) / count;
-                    arenaProgressBar.style.width = (50 + avg * 50).toFixed(1) + '%';
-                }
+                videoPromiseA = null; videoPromiseB = null;
                 if (trajMetaA && trajMetaA.video_file) {
-                    arenaLoadingText.textContent = 'Downloading screenshots…';
                     const url = trajMetaA.video_file.startsWith('http')
                         ? trajMetaA.video_file
                         : modelInfoA.traj_file.replace(/[^/]+$/, '') + trajMetaA.video_file;
-                    videoLoads.push(loadVideo(url, (p) => { vidProgressA = p; updateVidProgress(); }).then(v => { videoA = v; }).catch(() => { }));
+                    videoPromiseA = loadVideo(url).then(v => { videoA = v; return v; }).catch(() => null);
                 }
                 if (trajMetaB && trajMetaB.video_file) {
-                    arenaLoadingText.textContent = 'Downloading screenshots…';
                     const url = trajMetaB.video_file.startsWith('http')
                         ? trajMetaB.video_file
                         : modelInfoB.traj_file.replace(/[^/]+$/, '') + trajMetaB.video_file;
-                    videoLoads.push(loadVideo(url, (p) => { vidProgressB = p; updateVidProgress(); }).then(v => { videoB = v; }).catch(() => { }));
+                    videoPromiseB = loadVideo(url).then(v => { videoB = v; return v; }).catch(() => null);
                 }
-                await Promise.all(videoLoads);
 
                 document.getElementById('arena-loading').style.display = 'none';
                 document.getElementById('arena-content').style.display = '';
@@ -665,9 +649,39 @@
             // ── Comparison view ──
             function hideComparison() {
                 document.getElementById('arena-comparison').style.display = 'none';
+                document.getElementById('arena-expand-all').style.display = 'none';
             }
 
             document.getElementById('arena-comparison-close').addEventListener('click', hideComparison);
+
+            const arenaExpandAllBtn = document.getElementById('arena-expand-all');
+            function arenaScreenshotBlocks() {
+                return document.querySelectorAll(
+                    '#arena-col-a-body .traj-screenshot-block, #arena-col-b-body .traj-screenshot-block'
+                );
+            }
+            function updateArenaExpandAllLabel() {
+                const blocks = arenaScreenshotBlocks();
+                if (blocks.length === 0) {
+                    arenaExpandAllBtn.style.display = 'none';
+                    return;
+                }
+                arenaExpandAllBtn.style.display = '';
+                const allOpen = [...blocks].every(b => b.open);
+                arenaExpandAllBtn.textContent = allOpen ? 'Collapse all' : 'Expand all';
+            }
+            arenaExpandAllBtn.addEventListener('click', () => {
+                const blocks = arenaScreenshotBlocks();
+                if (blocks.length === 0) return;
+                const allOpen = [...blocks].every(b => b.open);
+                blocks.forEach(b => { b.open = !allOpen; });
+                updateArenaExpandAllLabel();
+            });
+            ['arena-col-a-body', 'arena-col-b-body'].forEach(id => {
+                document.getElementById(id).addEventListener('toggle', (e) => {
+                    if (e.target.classList?.contains('traj-screenshot-block')) updateArenaExpandAllLabel();
+                }, true);
+            });
 
             function renderComparison(taskName) {
                 const comp = document.getElementById('arena-comparison');
@@ -700,22 +714,37 @@
                 // Render steps
                 document.getElementById('arena-col-a-body').innerHTML = renderSteps(taskA, 'a');
                 document.getElementById('arena-col-b-body').innerHTML = renderSteps(taskB, 'b');
+                updateArenaExpandAllLabel();
 
-                // Render screenshot frames
-                async function renderSideCanvases(containerId, vid, meta, task) {
-                    if (!vid || !meta || !task) return;
-                    const canvases = document.getElementById(containerId).querySelectorAll('.traj-canvas');
+                // Render screenshot frames. Each side awaits its own video promise
+                // so screenshots can appear independently as videos arrive.
+                // The generation counter prevents stale frames from being painted
+                // into a different task's canvases if the user switches tasks
+                // before the video finishes downloading.
+                const myGen = ++arenaRenderGeneration;
+                async function renderSideCanvases(containerId, videoPromise, meta, task) {
+                    if (!videoPromise || !meta || !task) return;
+                    const container = document.getElementById(containerId);
+                    const vid = await videoPromise;
+                    if (myGen !== arenaRenderGeneration) return;
+                    if (!vid) {
+                        container.querySelectorAll('.traj-screenshot.is-loading .traj-screenshot-spinner').forEach(el => {
+                            el.innerHTML = '<i class="fas fa-image"></i> Screenshot unavailable';
+                        });
+                        return;
+                    }
+                    const canvases = container.querySelectorAll('.traj-canvas');
                     for (const canvas of canvases) {
+                        if (myGen !== arenaRenderGeneration) return;
                         const fi = parseInt(canvas.dataset.frame);
                         const si = parseInt(canvas.dataset.step);
                         const action = task.traj[si]?.action || null;
                         await renderScreenshotCanvas(canvas, vid, fi, meta.fps, meta, action);
+                        canvas.parentElement?.classList.remove('is-loading');
                     }
                 }
-                Promise.all([
-                    renderSideCanvases('arena-col-a-body', videoA, trajMetaA, taskA),
-                    renderSideCanvases('arena-col-b-body', videoB, trajMetaB, taskB),
-                ]);
+                renderSideCanvases('arena-col-a-body', videoPromiseA, trajMetaA, taskA);
+                renderSideCanvases('arena-col-b-body', videoPromiseB, trajMetaB, taskB);
 
                 // Token usage
                 renderTokens('arena-col-a-tokens', taskA?.token_usage);
@@ -735,7 +764,6 @@
                     return '<div class="arena-empty">No trajectory data.</div>';
                 }
                 const meta = side === 'a' ? trajMetaA : trajMetaB;
-                const vid = side === 'a' ? videoA : videoB;
                 return task.traj.map((step, i) => {
                     const pred = step.prediction || '';
 
@@ -748,9 +776,9 @@
                     if (action.direction)
                         actionStr += ` ${action.direction}`;
 
-                    const hasFrame = step.frame_index !== undefined && vid && meta;
+                    const hasFrame = step.frame_index !== undefined && meta && meta.video_file;
                     const screenshotHtml = hasFrame
-                        ? `<div class="traj-screenshot"><canvas class="traj-canvas" data-frame="${step.frame_index}" data-step="${i}" data-side="${side}"></canvas></div>`
+                        ? `<details class="traj-screenshot-block"><summary>Screenshot</summary><div class="traj-screenshot is-loading"><canvas class="traj-canvas" data-frame="${step.frame_index}" data-step="${i}" data-side="${side}"></canvas><div class="traj-screenshot-spinner"><i class="fas fa-spinner fa-spin"></i> Loading screenshot…</div></div></details>`
                         : '';
 
                     const askUser = step.ask_user_response

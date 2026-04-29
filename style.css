@@ -1227,6 +1227,7 @@ a.traj-open-btn {
 .traj-body {
     flex: 1;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 1.25rem 2rem 2rem;
 }
 
@@ -1321,6 +1322,70 @@ a.traj-open-btn {
 
 .traj-canvas:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.traj-screenshot.is-loading {
+    min-height: 220px;
+    align-items: center;
+}
+
+.traj-screenshot.is-loading .traj-canvas {
+    display: none;
+}
+
+.traj-screenshot:not(.is-loading) .traj-screenshot-spinner {
+    display: none;
+}
+
+.traj-screenshot-spinner {
+    color: #999;
+    font-size: 0.85rem;
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+/* Screenshot collapse — mirrors .traj-think */
+.traj-screenshot-block {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.traj-screenshot-block > summary {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #aaa;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+}
+
+.traj-screenshot-block > summary:hover {
+    color: #666;
+}
+
+.traj-screenshot-block .traj-screenshot {
+    border-bottom: none;
+}
+
+/* Expand-all toggle in modal/comparison headers */
+.traj-expand-all {
+    background: none;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+    color: #666;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.traj-expand-all:hover {
+    border-color: #ccc;
+    color: #1a1a1a;
 }
 
 /* Full-size screenshot overlay */

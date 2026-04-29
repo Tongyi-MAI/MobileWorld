@@ -180,13 +180,12 @@
             <div class="lb-filters">
                 <div class="lb-filter-group">
                     <span class="lb-filter-label">Type</span>
-                    <div class="lb-select-wrap">
-                        <select id="filter-model-type">
-                            <option value="all">All</option>
-                            <option value="Agentic Framework">Agentic</option>
-                            <option value="End-to-End Model">End-to-End</option>
-                        </select>
-                    </div>
+                    <label class="lb-chip"><input type="checkbox" id="filter-type-agentic"
+                            checked><span>Agentic</span></label>
+                    <label class="lb-chip"><input type="checkbox" id="filter-type-general"
+                            checked><span>General</span></label>
+                    <label class="lb-chip"><input type="checkbox" id="filter-type-specialized"
+                            checked><span>Specialized</span></label>
                 </div>
                 <span class="lb-filter-sep"></span>
                 <div class="lb-filter-group">
@@ -506,6 +505,7 @@
                         <select id="traj-task-select"></select>
                     </div>
                     <span class="traj-result" id="traj-result-badge"></span>
+                    <button type="button" class="traj-expand-all" id="traj-expand-all" style="display:none">Expand all</button>
                 </div>
             </div>
             <div class="traj-body" id="traj-body">
@@ -640,12 +640,21 @@
         // Leaderboard functionality
         document.addEventListener('DOMContentLoaded', async function () {
             const tbody = document.getElementById('leaderboard-body');
-            const filterModelType = document.getElementById('filter-model-type');
+            const filterTypeAgentic = document.getElementById('filter-type-agentic');
+            const filterTypeGeneral = document.getElementById('filter-type-general');
+            const filterTypeSpecialized = document.getElementById('filter-type-specialized');
             // const filterSteps = document.getElementById('filter-steps');  // Max Steps filter hidden
             const filterGuiOnly = document.getElementById('filter-gui-only');
             const filterUserInt = document.getElementById('filter-user-int');
             const filterMcp = document.getElementById('filter-mcp');
             const clearFiltersBtn = document.getElementById('clear-filters');
+
+            // Visual styling per category (sourced from leaderboard.json `category`).
+            const CATEGORY_BADGE_CLASS = {
+                'Agentic': 'tag is-info is-light',
+                'General': 'tag is-link is-light',
+                'Specialized': 'tag is-warning is-light',
+            };
 
             let leaderboardData = [];
             let filteredData = [];
@@ -694,13 +703,17 @@
             }
 
             // Filter handlers
-            filterModelType.addEventListener('change', applyFilters);
+            filterTypeAgentic.addEventListener('change', handleTypeChange);
+            filterTypeGeneral.addEventListener('change', handleTypeChange);
+            filterTypeSpecialized.addEventListener('change', handleTypeChange);
             // filterSteps.addEventListener('change', applyFilters);  // Max Steps filter hidden
             filterGuiOnly.addEventListener('change', handleCategoryChange);
             filterUserInt.addEventListener('change', handleCategoryChange);
             filterMcp.addEventListener('change', handleCategoryChange);
             clearFiltersBtn.addEventListener('click', () => {
-                filterModelType.value = 'all';
+                filterTypeAgentic.checked = true;
+                filterTypeGeneral.checked = true;
+                filterTypeSpecialized.checked = true;
                 // filterSteps.value = 'all';  // Max Steps filter hidden
                 filterGuiOnly.checked = true;
                 filterUserInt.checked = true;
@@ -710,6 +723,11 @@
                 updateCheckboxStates();
                 applyFilters();
             });
+
+            function handleTypeChange() {
+                updateCheckboxStates();
+                applyFilters();
+            }
 
             // Handle category checkbox changes
             function handleCategoryChange() {
@@ -740,12 +758,15 @@
 
             // Update checkbox disabled states - prevent deselecting last one
             function updateCheckboxStates() {
-                const checkedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
+                const taskCheckedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
+                filterGuiOnly.disabled = taskCheckedCount === 1 && filterGuiOnly.checked;
+                filterUserInt.disabled = taskCheckedCount === 1 && filterUserInt.checked;
+                filterMcp.disabled = taskCheckedCount === 1 && filterMcp.checked;
 
-                // If only one is checked, disable it to prevent unchecking
-                filterGuiOnly.disabled = checkedCount === 1 && filterGuiOnly.checked;
-                filterUserInt.disabled = checkedCount === 1 && filterUserInt.checked;
-                filterMcp.disabled = checkedCount === 1 && filterMcp.checked;
+                const typeCheckedCount = [filterTypeAgentic.checked, filterTypeGeneral.checked, filterTypeSpecialized.checked].filter(Boolean).length;
+                filterTypeAgentic.disabled = typeCheckedCount === 1 && filterTypeAgentic.checked;
+                filterTypeGeneral.disabled = typeCheckedCount === 1 && filterTypeGeneral.checked;
+                filterTypeSpecialized.disabled = typeCheckedCount === 1 && filterTypeSpecialized.checked;
             }
 
             // Update table header with task counts
@@ -812,9 +833,14 @@
                 const includeGui = filterGuiOnly.checked;
                 const includeUser = filterUserInt.checked;
                 const includeMcp = filterMcp.checked;
+                const typeAllowed = {
+                    'Agentic': filterTypeAgentic.checked,
+                    'General': filterTypeGeneral.checked,
+                    'Specialized': filterTypeSpecialized.checked,
+                };
 
                 filteredData = leaderboardData.filter(row => {
-                    const modelTypeMatch = filterModelType.value === 'all' || row.model_type === filterModelType.value;
+                    const typeMatch = !!typeAllowed[row.category];
                     // const stepsMatch = filterSteps.value === 'all' || row.max_steps === parseInt(filterSteps.value);  // Max Steps filter hidden
 
                     // Filter out rows that have no data for any selected category
@@ -823,7 +849,7 @@
                         (includeUser && row.user_int !== null) ||
                         (includeMcp && row.mcp !== null);
 
-                    return modelTypeMatch && hasSelectedData;  // && stepsMatch
+                    return typeMatch && hasSelectedData;  // && stepsMatch
                 });
                 updateTableHeader();
                 renderTable();
@@ -869,9 +895,9 @@
 
                     const modelName = row.model;
 
-                    // Category badge class
-                    const categoryClass = row.model_type === 'Agentic Framework' ? 'tag is-info is-light' : 'tag is-link is-light';
-                    const categoryLabel = row.model_type === 'Agentic Framework' ? 'Agentic' : 'End-to-End';
+                    // Category badge class — driven by leaderboard.json `category`
+                    const categoryClass = CATEGORY_BADGE_CLASS[row.category] || 'tag is-light';
+                    const categoryLabel = row.category;
 
                     // Calculate display score for Overall column (always computed dynamically)
                     const overallScore = getFilteredScore(row);
@@ -956,7 +982,7 @@
             function openDetailModal(row) {
                 const overallScore = getFilteredScore(row);
                 const na = '<span class="dm-empty">—</span>';
-                const categoryLabel = row.model_type === 'Agentic Framework' ? 'Agentic' : 'End-to-End';
+                const categoryLabel = row.category;
 
                 modalHeader.innerHTML = `
                     <span class="dm-pill">${categoryLabel}</span>
@@ -1104,33 +1130,22 @@
             }
 
             // ── Screenshot video utilities ──
+            // Point the <video> at the URL directly so frame seeks issue
+            // range requests for just that frame's bytes (mp4 is +faststart),
+            // letting screenshots render as soon as their bytes arrive instead
+            // of waiting for the whole file to download.
             const videoCache = {};
 
-            function loadVideo(url, onProgress) {
+            function loadVideo(url) {
                 if (videoCache[url]) return videoCache[url];
                 const promise = (async () => {
-                    const resp = await fetch(url);
-                    if (!resp.ok) throw new Error(`Video HTTP ${resp.status}`);
-                    const total = parseInt(resp.headers.get('content-length') || '0', 10);
-                    let loaded = 0;
-                    const chunks = [];
-                    const reader = resp.body.getReader();
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        chunks.push(value);
-                        loaded += value.byteLength;
-                        if (onProgress && total) onProgress(loaded / total);
-                    }
-                    const blob = new Blob(chunks, { type: 'video/mp4' });
-                    const blobUrl = URL.createObjectURL(blob);
                     const video = document.createElement('video');
                     video.preload = 'auto';
                     video.muted = true;
                     video.playsInline = true;
-                    video.src = blobUrl;
+                    video.src = url;
                     await new Promise((res, rej) => {
-                        video.addEventListener('loadeddata', res, { once: true });
+                        video.addEventListener('loadedmetadata', res, { once: true });
                         video.addEventListener('error', rej, { once: true });
                     });
                     return video;
@@ -1202,11 +1217,34 @@
                 }
             }
 
+            const trajExpandAllBtn = document.getElementById('traj-expand-all');
+            function updateExpandAllLabel() {
+                const blocks = trajSteps.querySelectorAll('.traj-screenshot-block');
+                if (blocks.length === 0) {
+                    trajExpandAllBtn.style.display = 'none';
+                    return;
+                }
+                trajExpandAllBtn.style.display = '';
+                const allOpen = [...blocks].every(b => b.open);
+                trajExpandAllBtn.textContent = allOpen ? 'Collapse all' : 'Expand all';
+            }
+            trajExpandAllBtn.addEventListener('click', () => {
+                const blocks = trajSteps.querySelectorAll('.traj-screenshot-block');
+                if (blocks.length === 0) return;
+                const allOpen = [...blocks].every(b => b.open);
+                blocks.forEach(b => { b.open = !allOpen; });
+                updateExpandAllLabel();
+            });
+            trajSteps.addEventListener('toggle', (e) => {
+                if (e.target.classList?.contains('traj-screenshot-block')) updateExpandAllLabel();
+            }, true);
+
             async function openTrajModal(trajFile, modelName) {
                 trajModelName.textContent = modelName + ' — Trajectories';
                 trajTaskSelect.innerHTML = '';
                 trajSteps.innerHTML = '';
                 trajResultBadge.textContent = '';
+                trajExpandAllBtn.style.display = 'none';
                 trajLoading.style.display = 'flex';
                 trajModal.classList.add('is-active');
 
@@ -1225,7 +1263,7 @@
                         progressWrap.style.display = '';
                         loadingText.textContent = 'Downloading trajectory data…';
                         data = await fetchGzipJson(trajFile, (pct) => {
-                            progressBar.style.width = (pct * 50).toFixed(1) + '%';
+                            progressBar.style.width = (pct * 100).toFixed(1) + '%';
                         });
                         trajCache[trajFile] = data;
                     } catch (err) {
@@ -1234,22 +1272,21 @@
                     }
                 }
 
+                trajLoading.style.display = 'none';
+
                 const meta = data._meta || null;
-                let videoEl = null;
+                let videoPromise = null;
                 if (meta && meta.video_file) {
                     const videoUrl = meta.video_file.startsWith('http')
                         ? meta.video_file
                         : trajFile.replace(/[^/]+$/, '') + meta.video_file;
-                    try {
-                        loadingText.textContent = 'Downloading screenshots…';
-                        progressWrap.style.display = '';
-                        videoEl = await loadVideo(videoUrl, (pct) => {
-                            progressBar.style.width = (50 + pct * 50).toFixed(1) + '%';
-                        });
-                    } catch (e) { console.warn('Video load failed:', e); }
+                    videoPromise = loadVideo(videoUrl).catch(e => {
+                        console.warn('Video load failed:', e);
+                        return null;
+                    });
                 }
 
-                trajLoading.style.display = 'none';
+                let renderGeneration = 0;
 
                 const taskNames = Object.keys(data).filter(k => k !== '_meta').sort();
                 taskNames.forEach(name => {
@@ -1299,9 +1336,9 @@
                             actionStr += ` ${action.direction}`;
                         }
 
-                        const hasFrame = step.frame_index !== undefined && videoEl && meta;
+                        const hasFrame = step.frame_index !== undefined && meta && meta.video_file;
                         const screenshotHtml = hasFrame
-                            ? `<div class="traj-screenshot"><canvas class="traj-canvas" data-frame="${step.frame_index}" data-step="${i}"></canvas></div>`
+                            ? `<details class="traj-screenshot-block"><summary>Screenshot</summary><div class="traj-screenshot is-loading"><canvas class="traj-canvas" data-frame="${step.frame_index}" data-step="${i}"></canvas><div class="traj-screenshot-spinner"><i class="fas fa-spinner fa-spin"></i> Loading screenshot…</div></div></details>`
                             : '';
 
                         const askUser = step.ask_user_response
@@ -1337,16 +1374,30 @@
                     }
 
                     trajSteps.innerHTML = html;
+                    updateExpandAllLabel();
 
-                    // Render screenshot frames into canvases (sequentially to avoid seek races)
-                    if (videoEl && meta) {
+                    // Render screenshot frames into canvases (sequentially to avoid seek races).
+                    // Wait for the video to land in the background; bail out if the user
+                    // switches tasks before screenshots are ready.
+                    if (videoPromise && meta) {
+                        const myGen = ++renderGeneration;
                         (async () => {
+                            const videoEl = await videoPromise;
+                            if (myGen !== renderGeneration) return;
+                            if (!videoEl) {
+                                trajSteps.querySelectorAll('.traj-screenshot.is-loading .traj-screenshot-spinner').forEach(el => {
+                                    el.innerHTML = '<i class="fas fa-image"></i> Screenshot unavailable';
+                                });
+                                return;
+                            }
                             const canvases = trajSteps.querySelectorAll('.traj-canvas');
                             for (const canvas of canvases) {
+                                if (myGen !== renderGeneration) return;
                                 const fi = parseInt(canvas.dataset.frame);
                                 const si = parseInt(canvas.dataset.step);
                                 const stepAction = steps[si]?.action || null;
                                 await renderScreenshotCanvas(canvas, videoEl, fi, meta.fps, meta, stepAction);
+                                canvas.parentElement?.classList.remove('is-loading');
                             }
                         })();
                     }
