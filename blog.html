@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog – MobileWorld</title>
+    <meta name="description" content="Research updates and analysis from the MobileWorld benchmark team.">
+
+    <!-- Bulma CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Academicons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+        rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .blog-hero {
+            padding: 4rem 0rem 2rem;
+            background: #fff;
+        }
+
+        .blog-hero h1 {
+            font-family: 'Noto Serif', Georgia, serif;
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 0.5rem;
+        }
+
+        .blog-hero p {
+            font-size: 1rem;
+            color: #777;
+            max-width: 560px;
+        }
+
+        .blog-list {
+            padding: 1rem 0 3rem;
+        }
+
+        .blog-card {
+            display: block;
+            padding: 1.75rem 0;
+            border-bottom: 1px solid #eee;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.15s;
+        }
+
+        .blog-card:first-child {
+            border-top: 1px solid #eee;
+        }
+
+        .blog-card:hover {
+            background: #fafaf8;
+            margin-left: -1rem;
+            margin-right: -1rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+            border-radius: 8px;
+        }
+
+        .blog-card-date {
+            font-size: 0.8rem;
+            color: #aaa;
+            font-weight: 500;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .blog-card-title {
+            font-family: 'Noto Serif', Georgia, serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            line-height: 1.35;
+            margin-bottom: 0.5rem;
+        }
+
+        .blog-card:hover .blog-card-title {
+            color: #3273dc;
+        }
+
+        .blog-card-excerpt {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.6;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .blog-card-tags {
+            display: flex;
+            gap: 0.4rem;
+            margin-top: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .blog-tag {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #8b7355;
+            background: #f5f0ea;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation" id="main-navbar">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-title" href="index.html">
+                <strong>MobileWorld</strong>
+            </a>
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" id="navbar-burger">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </a>
+        </div>
+        <div class="navbar-menu" id="navbar-menu">
+            <div class="navbar-start">
+                <a class="navbar-item" href="index.html#leaderboard">Leaderboard</a>
+                <a class="navbar-item" href="index.html#overview">Overview</a>
+                <a class="navbar-item" href="blog.html">Blog</a>
+            </div>
+            <div class="navbar-end">
+                <div class="navbar-item">
+                    <div class="buttons">
+                        <a href="https://arxiv.org/abs/2512.19432" class="button is-small is-dark" target="_blank">
+                            <span class="icon"><i class="ai ai-arxiv"></i></span>
+                            <span>Paper</span>
+                        </a>
+                        <a href="https://github.com/Tongyi-MAI/MobileWorld" class="button is-small is-dark"
+                            target="_blank">
+                            <span class="icon"><i class="fab fa-github"></i></span>
+                            <span>Code</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container is-max-desktop">
+        <!-- Blog Header -->
+        <section class="blog-hero">
+            <h1>Blog</h1>
+            <p>Research updates and benchmark analysis from the MobileWorld team.</p>
+        </section>
+
+        <!-- Blog Posts List -->
+        <section class="blog-list">
+            <a class="blog-card" href="blog_post.html?post=Evaluating two model upgrades on MobileWorld">
+                <div class="blog-card-date">
+                    <i class="far fa-calendar"></i> May 3, 2026
+                </div>
+                <h2 class="blog-card-title">Evaluating two model upgrades on MobileWorld</h2>
+                <p class="blog-card-excerpt">
+                    We ran two recent model upgrades — Anthropic's Opus 4.6 → 4.7 and Moonshot's Kimi K2.5 → K2.6 —
+                    through MobileWorld, our 161-task benchmark for mobile GUI agents. Opus 4.7 outperforms 4.6 by
+                    +15.5pp;
+                    Kimi K2.6 outperforms K2.5 by +9.3pp. The single largest source of improvement in both is
+                    loop-breaking.
+                </p>
+                <div class="blog-card-tags">
+                    <span class="blog-tag">Evaluation</span>
+                    <span class="blog-tag">Claude Opus</span>
+                    <span class="blog-tag">Kimi K2</span>
+                </div>
+            </a>
+        </section>
+    </div>
+
+    <footer class="footer">
+        <div class="content has-text-centered">
+            <p>
+                <strong>MobileWorld Team</strong> &middot;
+                <a href="https://github.com/Tongyi-MAI/MobileWorld">GitHub</a> &middot;
+                <a href="https://github.com/Tongyi-MAI/MobileWorld/issues">Issues</a>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const $navbarBurger = document.getElementById('navbar-burger');
+            const $navbarMenu = document.getElementById('navbar-menu');
+            const $navbar = document.getElementById('main-navbar');
+
+            if ($navbarBurger) {
+                $navbarBurger.addEventListener('click', () => {
+                    $navbarBurger.classList.toggle('is-active');
+                    $navbarMenu.classList.toggle('is-active');
+                });
+            }
+
+            let ticking = false;
+            window.addEventListener('scroll', () => {
+                if (!ticking) {
+                    requestAnimationFrame(() => {
+                        $navbar.classList.toggle('is-scrolled', window.scrollY > 10);
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            }, { passive: true });
+        });
+    </script>
+</body>
+
+</html>
