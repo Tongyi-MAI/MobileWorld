@@ -91,7 +91,8 @@
       "mcp": null,
       "agent_type": "general_e2e",
       "num_images_in_history": 3,
-      "notes": null
+      "notes": null,
+      "traj_file": "trajs/qwen3.5-122b-a10b_general.json.gz"
     },
     {
       "model": "Seed-2.0-Pro",
