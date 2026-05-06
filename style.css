@@ -532,7 +532,7 @@ html {
 }
 
 .model-cell .model-name {
-    font-size: 1rem;
+    font-size: 1.1rem;
     color: #1a1a1a;
     margin-bottom: 0.15rem;
 }
@@ -589,7 +589,7 @@ html {
 /* Overall score */
 .overall-score {
     color: #1a1a1a !important;
-    font-size: 0.95rem;
+    font-size: 1.1rem;
     font-variant-numeric: tabular-nums;
 }
 
@@ -613,7 +613,7 @@ html {
 /* Score cells */
 .osworld-leaderboard-table tbody td.has-text-centered {
     font-variant-numeric: tabular-nums;
-    font-size: 0.95rem;
+    font-size: 1.1rem;
     color: #333;
 }
 
