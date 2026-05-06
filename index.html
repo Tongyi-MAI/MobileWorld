@@ -44,7 +44,7 @@
         <div class="navbar-menu" id="navbar-menu">
             <div class="navbar-start">
                 <a class="navbar-item" href="#leaderboard">Leaderboard</a>
-                <a class="navbar-item" href="#arena">Arena</a>
+                <a class="navbar-item" href="arena">Arena</a>
                 <a class="navbar-item" href="#overview">Overview</a>
                 <a class="navbar-item" href="blog.html">Blog</a>
             </div>
@@ -175,8 +175,10 @@
         <section id="leaderboard" class="section">
             <h2 class="title is-3">Leaderboard</h2>
             <p class="lb-desc">Success rate (%) on MobileWorld, weighted by task counts across GUI-Only (117),
-                User-Interaction (44), and MCP (40) tasks. All results evaluated with max steps&nbsp;=&nbsp;50. <a
-                    href="#" id="submit-results-link">Submit your results&nbsp;&rarr;</a></p>
+                User-Interaction (44), and MCP (40) tasks. All results evaluated with max steps = 50. <a href="#"
+                    id="submit-results-link">Submit your results&nbsp;&rarr;</a></p>
+            <p class="lb-desc">🔥 <strong>New:</strong> <a href="arena">Arena</a> &mdash; compare agent trajectories
+                side-by-side on the same task to see why one agent succeeds where another fails.</p>
 
             <!-- Filters -->
             <div class="lb-filters">
@@ -226,17 +228,6 @@
             </div>
         </section>
 
-        <!-- Arena -->
-        <section id="arena" class="section">
-            <h2 class="title is-3">Arena</h2>
-            <div class="content has-text-justified">
-                <p><strong>MobileWorld Arena</strong> lets you compare agent trajectories side-by-side on the same
-                    task. Select any two models from the leaderboard, pick a task, and watch how each agent
-                    navigates the mobile environment &mdash; step by step, screenshot by screenshot. Use it to
-                    understand <em>why</em> one agent succeeds where another fails.
-                    <a href="arena">Open Arena&nbsp;&rarr;</a></p>
-            </div>
-        </section>
 
         <!-- Overview -->
         <section id="overview" class="section">
@@ -515,7 +506,8 @@
                         <select id="traj-task-select"></select>
                     </div>
                     <span class="traj-result" id="traj-result-badge"></span>
-                    <button type="button" class="traj-expand-all" id="traj-expand-all" style="display:none">Expand all</button>
+                    <button type="button" class="traj-expand-all" id="traj-expand-all" style="display:none">Expand
+                        all</button>
                 </div>
             </div>
             <div class="traj-body" id="traj-body">
@@ -667,7 +659,7 @@
                         const val = btn.dataset.value;
                         const state = filterState[groupName];
                         if (state.has(val)) {
-                            if (state.size > 1) state.delete(val);
+                            state.delete(val);
                         } else {
                             state.add(val);
                         }

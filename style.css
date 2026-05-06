@@ -17,9 +17,9 @@
 
 /* Override Bulma's max-width */
 .container.is-max-desktop {
-    max-width: 960px;
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
+    max-width: 1100px;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
 }
 
 body {
@@ -244,8 +244,8 @@ html {
 }
 
 .lb-desc {
-    font-size: 0.88rem;
-    color: #777;
+    font-size: 0.95rem;
+    color: #1a1a1a;
     line-height: 1.6;
     margin-bottom: 1rem;
 }
@@ -455,7 +455,7 @@ html {
 
 .osworld-leaderboard-table {
     margin-bottom: 0 !important;
-    font-size: 0.9rem;
+    font-size: 1rem;
     border-collapse: separate;
     border-spacing: 0;
 }
@@ -465,12 +465,12 @@ html {
 }
 
 .osworld-leaderboard-table thead th {
-    color: #999 !important;
+    color: #555 !important;
     border-color: #eee !important;
     font-weight: 600;
     text-transform: uppercase;
-    font-size: 0.68rem;
-    letter-spacing: 0.6px;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
     padding: 0.85rem 0.6rem;
     border-bottom: 1px solid #eee !important;
     white-space: nowrap;
@@ -532,7 +532,7 @@ html {
 }
 
 .model-cell .model-name {
-    font-size: 0.92rem;
+    font-size: 1rem;
     color: #1a1a1a;
     margin-bottom: 0.15rem;
 }
@@ -550,14 +550,14 @@ html {
 
 .model-cell .model-org {
     color: #999;
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     font-style: normal;
     margin-bottom: 0.1rem;
 }
 
 .model-cell .model-date {
     color: #bbb;
-    font-size: 0.72rem;
+    font-size: 0.76rem;
 }
 
 .model-cell .model-date i {
@@ -613,8 +613,8 @@ html {
 /* Score cells */
 .osworld-leaderboard-table tbody td.has-text-centered {
     font-variant-numeric: tabular-nums;
-    font-size: 0.88rem;
-    color: #555;
+    font-size: 0.95rem;
+    color: #333;
 }
 
 /* Comparison Table */
@@ -812,7 +812,7 @@ a:hover {
 
     .osworld-leaderboard-table thead th {
         padding: 0.6rem 0.35rem;
-        font-size: 0.58rem;
+        font-size: 0.7rem;
     }
 
     .osworld-leaderboard-table tbody td {
@@ -930,6 +930,7 @@ a:hover {
     transition: color 0.15s;
     text-decoration: none;
 }
+
 .osworld-leaderboard-table a.arena-link-btn:hover {
     color: #666;
     text-decoration: none;
@@ -1311,7 +1312,7 @@ a.traj-open-btn {
     font-size: 0.9rem;
 }
 
-.traj-loading > div:first-child {
+.traj-loading>div:first-child {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -1419,7 +1420,7 @@ a.traj-open-btn {
     border-bottom: 1px solid #f0f0f0;
 }
 
-.traj-screenshot-block > summary {
+.traj-screenshot-block>summary {
     padding: 0.5rem 0.9rem;
     font-size: 0.78rem;
     font-weight: 500;
@@ -1429,7 +1430,7 @@ a.traj-open-btn {
     transition: color 0.15s;
 }
 
-.traj-screenshot-block > summary:hover {
+.traj-screenshot-block>summary:hover {
     color: #666;
 }
 
