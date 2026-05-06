@@ -250,14 +250,16 @@ html {
     margin-bottom: 1rem;
 }
 
-.lb-desc a {
+.lb-desc a,
+#arena .content a {
     color: #555;
     text-decoration: underline;
     text-decoration-color: #ccc;
     text-underline-offset: 2px;
 }
 
-.lb-desc a:hover {
+.lb-desc a:hover,
+#arena .content a:hover {
     text-decoration-color: #555;
 }
 
@@ -320,7 +322,76 @@ html {
     border-color: #999;
 }
 
-/* Chip checkboxes */
+/* Toggle buttons */
+.lb-toggle-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+}
+
+.lb-toggle-group .lb-filter-label {
+    margin-right: 0.35rem;
+}
+
+.lb-toggle {
+    font-size: 0.78rem;
+    color: #888;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid #e0e0e0;
+    background: #fff;
+    cursor: pointer;
+    font-weight: 500;
+    font-family: inherit;
+    transition: all 0.15s;
+    outline: none;
+    margin-left: -1px;
+}
+
+.lb-toggle:first-of-type {
+    border-radius: 5px 0 0 5px;
+    margin-left: 0;
+}
+
+.lb-toggle:last-of-type {
+    border-radius: 0 5px 5px 0;
+}
+
+.lb-toggle:hover {
+    background: #fafafa;
+    border-color: #ccc;
+    z-index: 1;
+    position: relative;
+}
+
+.lb-toggle.is-active {
+    background: #f0f0ee;
+    color: #333;
+    border-color: #c8c8c8;
+    z-index: 1;
+    position: relative;
+}
+
+/* Toggle checkbox indicators */
+.lb-toggle::before {
+    content: '';
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border: 1.5px solid #ccc;
+    border-radius: 2px;
+    margin-right: 0.3rem;
+    vertical-align: -1px;
+    transition: all 0.15s;
+    background: #fff;
+}
+
+.lb-toggle.is-active::before {
+    background: #555;
+    border-color: #555;
+    box-shadow: inset 0 0 0 1.5px #fff;
+}
+
+/* Legacy chip support (kept for backwards compat) */
 .lb-chip {
     display: inline-flex;
     align-items: center;
@@ -842,10 +913,9 @@ a:hover {
     background: none;
     border: none;
     cursor: pointer;
-    color: #c4c4c4;
-    font-size: 0.78rem;
-    padding: 0 0.25rem;
-    vertical-align: middle;
+    color: #bbb;
+    font-size: 0.85rem;
+    padding: 0.2rem 0.3rem;
     transition: color 0.15s;
 }
 
@@ -854,10 +924,9 @@ a:hover {
 }
 
 .osworld-leaderboard-table a.arena-link-btn {
-    color: #c4c4c4;
-    font-size: 0.78rem;
-    padding: 0 0.25rem;
-    vertical-align: middle;
+    color: #bbb;
+    font-size: 0.85rem;
+    padding: 0.2rem 0.3rem;
     transition: color 0.15s;
     text-decoration: none;
 }

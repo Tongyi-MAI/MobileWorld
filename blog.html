@@ -134,6 +134,7 @@
         <div class="navbar-menu" id="navbar-menu">
             <div class="navbar-start">
                 <a class="navbar-item" href="index.html#leaderboard">Leaderboard</a>
+                <a class="navbar-item" href="index.html#arena">Arena</a>
                 <a class="navbar-item" href="index.html#overview">Overview</a>
                 <a class="navbar-item" href="blog.html">Blog</a>
             </div>
@@ -144,11 +145,44 @@
                             <span class="icon"><i class="ai ai-arxiv"></i></span>
                             <span>Paper</span>
                         </a>
+                        <a href="https://huggingface.co/datasets/Tongyi-MAI/MobileWorld" class="button is-small is-dark"
+                            target="_blank">
+                            <span class="icon"><img
+                                    src="https://huggingface.co/front/assets/huggingface_logo-noborder.svg" alt="HF"
+                                    style="height: 14px; opacity: 0.7;"></span>
+                            <span>Dataset</span>
+                        </a>
                         <a href="https://github.com/Tongyi-MAI/MobileWorld" class="button is-small is-dark"
                             target="_blank">
                             <span class="icon"><i class="fab fa-github"></i></span>
                             <span>Code</span>
                         </a>
+                        <div class="dropdown is-hoverable is-right" id="cite-dropdown">
+                            <div class="dropdown-trigger">
+                                <button class="button is-small is-dark" aria-haspopup="true" aria-controls="cite-menu">
+                                    <span class="icon"><i class="fas fa-quote-right"></i></span>
+                                    <span>Cite</span>
+                                </button>
+                            </div>
+                            <div class="dropdown-menu" id="cite-menu" role="menu">
+                                <div class="dropdown-content cite-dropdown-content">
+                                    <div class="dropdown-item">
+                                        <p class="is-size-7 has-text-weight-semibold mb-2">BibTeX</p>
+                                        <pre class="cite-bibtex"><code>@inproceedings{kong2025mobileworld,
+      title={MobileWorld: Benchmarking Autonomous Mobile Agents in Agent-User Interactive, and MCP-Augmented Environments},
+      author={Quyu Kong and Xu Zhang and Zhenyu Yang and Nolan Gao and Chen Liu and Panrong Tong and Chenglin Cai and Hanzhang Zhou and Jianan Zhang and Liangyu Chen and Zhidan Liu and Steven Hoi and Yue Wang},
+      booktitle={Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (ACL)},
+      year={2026},
+      url={https://arxiv.org/abs/2512.19432},
+}</code></pre>
+                                        <button class="button is-small is-fullwidth mt-2" id="copy-cite-btn">
+                                            <span class="icon"><i class="fas fa-copy"></i></span>
+                                            <span>Copy</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -218,6 +252,23 @@
                     ticking = true;
                 }
             }, { passive: true });
+
+            const copyCiteBtn = document.getElementById('copy-cite-btn');
+            if (copyCiteBtn) {
+                copyCiteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const bibtex = copyCiteBtn.closest('.dropdown-item').querySelector('code').textContent;
+                    navigator.clipboard.writeText(bibtex).then(() => {
+                        const originalHTML = copyCiteBtn.innerHTML;
+                        copyCiteBtn.innerHTML = '<span class="icon"><i class="fas fa-check"></i></span><span>Copied!</span>';
+                        copyCiteBtn.classList.add('is-success');
+                        setTimeout(() => {
+                            copyCiteBtn.innerHTML = originalHTML;
+                            copyCiteBtn.classList.remove('is-success');
+                        }, 2000);
+                    });
+                });
+            }
         });
     </script>
 </body>

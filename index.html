@@ -44,6 +44,7 @@
         <div class="navbar-menu" id="navbar-menu">
             <div class="navbar-start">
                 <a class="navbar-item" href="#leaderboard">Leaderboard</a>
+                <a class="navbar-item" href="#arena">Arena</a>
                 <a class="navbar-item" href="#overview">Overview</a>
                 <a class="navbar-item" href="blog.html">Blog</a>
             </div>
@@ -179,25 +180,19 @@
 
             <!-- Filters -->
             <div class="lb-filters">
-                <div class="lb-filter-group">
+                <div class="lb-filter-group lb-toggle-group" data-group="type">
                     <span class="lb-filter-label">Type</span>
-                    <label class="lb-chip"><input type="checkbox" id="filter-type-agentic"
-                            checked><span>Agentic</span></label>
-                    <label class="lb-chip"><input type="checkbox" id="filter-type-general"
-                            checked><span>General</span></label>
-                    <label class="lb-chip"><input type="checkbox" id="filter-type-specialized"
-                            checked><span>Specialized</span></label>
+                    <button class="lb-toggle is-active" data-value="agentic">Agentic</button>
+                    <button class="lb-toggle is-active" data-value="general">General</button>
+                    <button class="lb-toggle is-active" data-value="specialized">Specialized</button>
                 </div>
                 <span class="lb-filter-sep"></span>
-                <div class="lb-filter-group">
+                <div class="lb-filter-group lb-toggle-group" data-group="tasks">
                     <span class="lb-filter-label">Tasks</span>
-                    <label class="lb-chip"><input type="checkbox" id="filter-gui-only"
-                            checked><span>GUI-Only</span></label>
-                    <label class="lb-chip"><input type="checkbox" id="filter-user-int"
-                            checked><span>User-Int.</span></label>
-                    <label class="lb-chip"><input type="checkbox" id="filter-mcp" checked><span>MCP</span></label>
+                    <button class="lb-toggle is-active" data-value="gui-only">GUI-Only</button>
+                    <button class="lb-toggle is-active" data-value="user-int">User-Int.</button>
+                    <button class="lb-toggle is-active" data-value="mcp">MCP</button>
                 </div>
-                <button class="lb-clear" id="clear-filters">Reset</button>
             </div>
 
             <!-- Leaderboard Table -->
@@ -220,12 +215,26 @@
                             <th id="th-mcp" class="has-text-centered sortable-header" data-sort="mcp">
                                 MCP <i class="fas fa-sort sort-icon"></i>
                             </th>
+                            <th class="has-text-centered" style="width:56px;">Traj.</th>
+                            <th class="has-text-centered" style="width:56px;">Arena</th>
                         </tr>
                     </thead>
                     <tbody id="leaderboard-body">
                         <!-- Loaded from leaderboard.json -->
                     </tbody>
                 </table>
+            </div>
+        </section>
+
+        <!-- Arena -->
+        <section id="arena" class="section">
+            <h2 class="title is-3">Arena</h2>
+            <div class="content has-text-justified">
+                <p><strong>MobileWorld Arena</strong> lets you compare agent trajectories side-by-side on the same
+                    task. Select any two models from the leaderboard, pick a task, and watch how each agent
+                    navigates the mobile environment &mdash; step by step, screenshot by screenshot. Use it to
+                    understand <em>why</em> one agent succeeds where another fails.
+                    <a href="arena">Open Arena&nbsp;&rarr;</a></p>
             </div>
         </section>
 
@@ -641,14 +650,39 @@
         // Leaderboard functionality
         document.addEventListener('DOMContentLoaded', async function () {
             const tbody = document.getElementById('leaderboard-body');
-            const filterTypeAgentic = document.getElementById('filter-type-agentic');
-            const filterTypeGeneral = document.getElementById('filter-type-general');
-            const filterTypeSpecialized = document.getElementById('filter-type-specialized');
-            // const filterSteps = document.getElementById('filter-steps');  // Max Steps filter hidden
-            const filterGuiOnly = document.getElementById('filter-gui-only');
-            const filterUserInt = document.getElementById('filter-user-int');
-            const filterMcp = document.getElementById('filter-mcp');
-            const clearFiltersBtn = document.getElementById('clear-filters');
+
+            // Toggle-group filter state
+            const filterState = {
+                type: new Set(['agentic', 'general', 'specialized']),
+                tasks: new Set(['gui-only', 'user-int', 'mcp']),
+            };
+
+            function isTypeActive(t) { return filterState.type.has(t); }
+            function isTaskActive(t) { return filterState.tasks.has(t); }
+
+            document.querySelectorAll('.lb-toggle-group').forEach(group => {
+                const groupName = group.dataset.group;
+                group.querySelectorAll('.lb-toggle').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const val = btn.dataset.value;
+                        const state = filterState[groupName];
+                        if (state.has(val)) {
+                            if (state.size > 1) state.delete(val);
+                        } else {
+                            state.add(val);
+                        }
+                        syncToggleUI(group, groupName);
+                        handleFilterChange(groupName);
+                    });
+                });
+            });
+
+            function syncToggleUI(group, groupName) {
+                const state = filterState[groupName];
+                group.querySelectorAll('.lb-toggle').forEach(btn => {
+                    btn.classList.toggle('is-active', state.has(btn.dataset.value));
+                });
+            }
 
             // Visual styling per category (sourced from leaderboard.json `category`).
             const CATEGORY_BADGE_CLASS = {
@@ -669,11 +703,10 @@
                 leaderboardData = data.results;
                 taskCounts = data.task_counts || taskCounts;
                 filteredData = [...leaderboardData];
-                updateCheckboxStates();
                 updateTableHeader();
                 renderTable();
             } catch (error) {
-                tbody.innerHTML = '<tr><td colspan="7" class="has-text-centered">Failed to load leaderboard data.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="has-text-centered">Failed to load leaderboard data.</td></tr>';
                 console.error('Error loading leaderboard:', error);
             }
 
@@ -703,71 +736,31 @@
                 });
             }
 
-            // Filter handlers
-            filterTypeAgentic.addEventListener('change', handleTypeChange);
-            filterTypeGeneral.addEventListener('change', handleTypeChange);
-            filterTypeSpecialized.addEventListener('change', handleTypeChange);
-            // filterSteps.addEventListener('change', applyFilters);  // Max Steps filter hidden
-            filterGuiOnly.addEventListener('change', handleCategoryChange);
-            filterUserInt.addEventListener('change', handleCategoryChange);
-            filterMcp.addEventListener('change', handleCategoryChange);
-            clearFiltersBtn.addEventListener('click', () => {
-                filterTypeAgentic.checked = true;
-                filterTypeGeneral.checked = true;
-                filterTypeSpecialized.checked = true;
-                // filterSteps.value = 'all';  // Max Steps filter hidden
-                filterGuiOnly.checked = true;
-                filterUserInt.checked = true;
-                filterMcp.checked = true;
-                currentSort = { key: 'overall', dir: 'desc' };
-                updateSortIcons();
-                updateCheckboxStates();
-                applyFilters();
-            });
+            function handleFilterChange(groupName) {
+                if (groupName === 'tasks') {
+                    const guiOn = isTaskActive('gui-only');
+                    const userOn = isTaskActive('user-int');
+                    const mcpOn = isTaskActive('mcp');
+                    const checkedCount = [guiOn, userOn, mcpOn].filter(Boolean).length;
 
-            function handleTypeChange() {
-                updateCheckboxStates();
-                applyFilters();
-            }
-
-            // Handle category checkbox changes
-            function handleCategoryChange() {
-                updateCheckboxStates();
-                const checkedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
-
-                // Reset sort to overall if current sort column is being hidden
-                if ((currentSort.key === 'gui_only' && !filterGuiOnly.checked) ||
-                    (currentSort.key === 'user_int' && !filterUserInt.checked) ||
-                    (currentSort.key === 'mcp' && !filterMcp.checked)) {
-                    currentSort = { key: 'overall', dir: 'desc' };
-                    updateSortIcons();
-                }
-                // If only one category selected, switch to that category
-                if (checkedCount === 1) {
-                    if (filterGuiOnly.checked) currentSort.key = 'gui_only';
-                    else if (filterUserInt.checked) currentSort.key = 'user_int';
-                    else if (filterMcp.checked) currentSort.key = 'mcp';
-                    updateSortIcons();
-                }
-                // If multiple categories selected and currently sorting by a single category column, switch to overall
-                if (checkedCount > 1 && ['gui_only', 'user_int', 'mcp'].includes(currentSort.key)) {
-                    currentSort = { key: 'overall', dir: 'desc' };
-                    updateSortIcons();
+                    if ((currentSort.key === 'gui_only' && !guiOn) ||
+                        (currentSort.key === 'user_int' && !userOn) ||
+                        (currentSort.key === 'mcp' && !mcpOn)) {
+                        currentSort = { key: 'overall', dir: 'desc' };
+                        updateSortIcons();
+                    }
+                    if (checkedCount === 1) {
+                        if (guiOn) currentSort.key = 'gui_only';
+                        else if (userOn) currentSort.key = 'user_int';
+                        else if (mcpOn) currentSort.key = 'mcp';
+                        updateSortIcons();
+                    }
+                    if (checkedCount > 1 && ['gui_only', 'user_int', 'mcp'].includes(currentSort.key)) {
+                        currentSort = { key: 'overall', dir: 'desc' };
+                        updateSortIcons();
+                    }
                 }
                 applyFilters();
-            }
-
-            // Update checkbox disabled states - prevent deselecting last one
-            function updateCheckboxStates() {
-                const taskCheckedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
-                filterGuiOnly.disabled = taskCheckedCount === 1 && filterGuiOnly.checked;
-                filterUserInt.disabled = taskCheckedCount === 1 && filterUserInt.checked;
-                filterMcp.disabled = taskCheckedCount === 1 && filterMcp.checked;
-
-                const typeCheckedCount = [filterTypeAgentic.checked, filterTypeGeneral.checked, filterTypeSpecialized.checked].filter(Boolean).length;
-                filterTypeAgentic.disabled = typeCheckedCount === 1 && filterTypeAgentic.checked;
-                filterTypeGeneral.disabled = typeCheckedCount === 1 && filterTypeGeneral.checked;
-                filterTypeSpecialized.disabled = typeCheckedCount === 1 && filterTypeSpecialized.checked;
             }
 
             // Update table header with task counts
@@ -777,11 +770,10 @@
                 const thUserInt = document.getElementById('th-user-int');
                 const thMcp = document.getElementById('th-mcp');
 
-                // Calculate dynamic overall task count based on selected filters
                 let overallCount = 0;
-                if (filterGuiOnly.checked) overallCount += taskCounts['GUI-Only'];
-                if (filterUserInt.checked) overallCount += taskCounts['User-Int.'];
-                if (filterMcp.checked) overallCount += taskCounts['MCP'];
+                if (isTaskActive('gui-only')) overallCount += taskCounts['GUI-Only'];
+                if (isTaskActive('user-int')) overallCount += taskCounts['User-Int.'];
+                if (isTaskActive('mcp')) overallCount += taskCounts['MCP'];
 
                 thOverall.innerHTML = `Overall <span class="task-count">(${overallCount})</span> <i class="fas fa-sort sort-icon"></i>`;
                 thGuiOnly.innerHTML = `GUI-Only <span class="task-count">(${taskCounts['GUI-Only']})</span> <i class="fas fa-sort sort-icon"></i>`;
@@ -789,23 +781,23 @@
                 thMcp.innerHTML = `MCP <span class="task-count">(${taskCounts['MCP']})</span> <i class="fas fa-sort sort-icon"></i>`;
             }
 
-            // Update column visibility in table header
             function updateColumnVisibility() {
-                const checkedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
+                const guiOn = isTaskActive('gui-only');
+                const userOn = isTaskActive('user-int');
+                const mcpOn = isTaskActive('mcp');
+                const checkedCount = [guiOn, userOn, mcpOn].filter(Boolean).length;
                 const showOverall = checkedCount > 1;
 
                 document.getElementById('th-overall').style.display = showOverall ? '' : 'none';
-                document.getElementById('th-gui-only').style.display = filterGuiOnly.checked ? '' : 'none';
-                document.getElementById('th-user-int').style.display = filterUserInt.checked ? '' : 'none';
-                document.getElementById('th-mcp').style.display = filterMcp.checked ? '' : 'none';
+                document.getElementById('th-gui-only').style.display = guiOn ? '' : 'none';
+                document.getElementById('th-user-int').style.display = userOn ? '' : 'none';
+                document.getElementById('th-mcp').style.display = mcpOn ? '' : 'none';
             }
 
-            // Calculate weighted score based on selected task categories and task counts
-            // Treat null values as 0 SR
             function getFilteredScore(row) {
-                const includeGui = filterGuiOnly.checked;
-                const includeUser = filterUserInt.checked;
-                const includeMcp = filterMcp.checked;
+                const includeGui = isTaskActive('gui-only');
+                const includeUser = isTaskActive('user-int');
+                const includeMcp = isTaskActive('mcp');
 
                 let weightedSum = 0;
                 let totalWeight = 0;
@@ -831,26 +823,23 @@
             }
 
             function applyFilters() {
-                const includeGui = filterGuiOnly.checked;
-                const includeUser = filterUserInt.checked;
-                const includeMcp = filterMcp.checked;
+                const includeGui = isTaskActive('gui-only');
+                const includeUser = isTaskActive('user-int');
+                const includeMcp = isTaskActive('mcp');
                 const typeAllowed = {
-                    'Agentic': filterTypeAgentic.checked,
-                    'General': filterTypeGeneral.checked,
-                    'Specialized': filterTypeSpecialized.checked,
+                    'Agentic': isTypeActive('agentic'),
+                    'General': isTypeActive('general'),
+                    'Specialized': isTypeActive('specialized'),
                 };
 
                 filteredData = leaderboardData.filter(row => {
                     const typeMatch = !!typeAllowed[row.category];
-                    // const stepsMatch = filterSteps.value === 'all' || row.max_steps === parseInt(filterSteps.value);  // Max Steps filter hidden
-
-                    // Filter out rows that have no data for any selected category
                     const hasSelectedData =
                         (includeGui && row.gui_only !== null) ||
                         (includeUser && row.user_int !== null) ||
                         (includeMcp && row.mcp !== null);
 
-                    return typeMatch && hasSelectedData;  // && stepsMatch
+                    return typeMatch && hasSelectedData;
                 });
                 updateTableHeader();
                 renderTable();
@@ -863,7 +852,10 @@
             }
 
             function renderTable() {
-                const checkedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
+                const guiOn = isTaskActive('gui-only');
+                const userOn = isTaskActive('user-int');
+                const mcpOn = isTaskActive('mcp');
+                const checkedCount = [guiOn, userOn, mcpOn].filter(Boolean).length;
                 const showOverall = checkedCount > 1;
 
                 // Update column visibility in header
@@ -907,29 +899,35 @@
                     // Build cells based on which columns are visible
                     const overallCell = showOverall ?
                         `<td class="has-text-centered"><strong class="overall-score">${overallDisplay}</strong></td>` : '';
-                    const guiCell = filterGuiOnly.checked ?
+                    const guiCell = guiOn ?
                         `<td class="has-text-centered">${row.gui_only !== null ? row.gui_only : '-'}</td>` : '';
-                    const userCell = filterUserInt.checked ?
+                    const userCell = userOn ?
                         `<td class="has-text-centered">${row.user_int !== null ? row.user_int : '-'}</td>` : '';
-                    const mcpCell = filterMcp.checked ?
+                    const mcpCell = mcpOn ?
                         `<td class="has-text-centered">${row.mcp !== null ? row.mcp : '-'}</td>` : '';
+
+                    const trajCell = row.traj_file
+                        ? `<td class="has-text-centered"><button class="traj-btn" data-traj-file="${row.traj_file}" data-model="${row.model}" title="View trajectories"><i class="fas fa-route"></i></button></td>`
+                        : `<td></td>`;
+                    const arenaCell = row.traj_file
+                        ? `<td class="has-text-centered"><a class="arena-link-btn" href="arena?model=${encodeURIComponent(row.model)}" title="Compare in Arena"><i class="fas fa-scale-balanced"></i></a></td>`
+                        : `<td></td>`;
 
                     return `
                         <tr class="${rowClass}">
                             <td class="has-text-centered"><strong>${rank}</strong></td>
                             <td><span class="category-badge ${categoryClass}">${categoryLabel}</span></td>
                             <td class="model-cell">
-                                <div class="model-name"><strong><a href="#" class="model-name-link" data-index="${sorted.indexOf(row)}">${modelName}</a></strong>
-                                    ${row.traj_file ? `<button class="traj-btn" data-traj-file="${row.traj_file}" data-model="${row.model}" title="View trajectories"><i class="fas fa-route"></i></button><a class="arena-link-btn" href="arena?model=${encodeURIComponent(row.model)}" title="Compare in Arena"><i class="fas fa-scale-balanced"></i></a>` : ''}
-                                </div>
+                                <div class="model-name"><strong><a href="#" class="model-name-link" data-index="${sorted.indexOf(row)}">${modelName}</a></strong></div>
                                 <div class="model-org">${row.organization}</div>
                                 <div class="model-date"><i class="far fa-calendar"></i> ${formatDate(row.date)}</div>
                             </td>
-                            <!-- <td class="has-text-centered">${row.max_steps}</td> -->
                             ${overallCell}
                             ${guiCell}
                             ${userCell}
                             ${mcpCell}
+                            ${trajCell}
+                            ${arenaCell}
                         </tr>
                     `;
                 }).join('');

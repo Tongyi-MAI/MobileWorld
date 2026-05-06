@@ -21,8 +21,8 @@
     <!-- Highlight.js -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <!-- Marked.js -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- markdown-it -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
     <style>
@@ -47,6 +47,9 @@
 
         .post-content {
             overflow-wrap: break-word;
+            max-width: 100%;
+            hyphens: none;
+            -webkit-hyphens: none;
         }
 
         .post-content h1 {
@@ -277,6 +280,7 @@
         <div class="navbar-menu" id="navbar-menu">
             <div class="navbar-start">
                 <a class="navbar-item" href="index.html#leaderboard">Leaderboard</a>
+                <a class="navbar-item" href="index.html#arena">Arena</a>
                 <a class="navbar-item" href="index.html#overview">Overview</a>
                 <a class="navbar-item" href="blog.html">Blog</a>
             </div>
@@ -287,11 +291,44 @@
                             <span class="icon"><i class="ai ai-arxiv"></i></span>
                             <span>Paper</span>
                         </a>
+                        <a href="https://huggingface.co/datasets/Tongyi-MAI/MobileWorld" class="button is-small is-dark"
+                            target="_blank">
+                            <span class="icon"><img
+                                    src="https://huggingface.co/front/assets/huggingface_logo-noborder.svg" alt="HF"
+                                    style="height: 14px; opacity: 0.7;"></span>
+                            <span>Dataset</span>
+                        </a>
                         <a href="https://github.com/Tongyi-MAI/MobileWorld" class="button is-small is-dark"
                             target="_blank">
                             <span class="icon"><i class="fab fa-github"></i></span>
                             <span>Code</span>
                         </a>
+                        <div class="dropdown is-hoverable is-right" id="cite-dropdown">
+                            <div class="dropdown-trigger">
+                                <button class="button is-small is-dark" aria-haspopup="true" aria-controls="cite-menu">
+                                    <span class="icon"><i class="fas fa-quote-right"></i></span>
+                                    <span>Cite</span>
+                                </button>
+                            </div>
+                            <div class="dropdown-menu" id="cite-menu" role="menu">
+                                <div class="dropdown-content cite-dropdown-content">
+                                    <div class="dropdown-item">
+                                        <p class="is-size-7 has-text-weight-semibold mb-2">BibTeX</p>
+                                        <pre class="cite-bibtex"><code>@inproceedings{kong2025mobileworld,
+      title={MobileWorld: Benchmarking Autonomous Mobile Agents in Agent-User Interactive, and MCP-Augmented Environments},
+      author={Quyu Kong and Xu Zhang and Zhenyu Yang and Nolan Gao and Chen Liu and Panrong Tong and Chenglin Cai and Hanzhang Zhou and Jianan Zhang and Liangyu Chen and Zhidan Liu and Steven Hoi and Yue Wang},
+      booktitle={Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (ACL)},
+      year={2026},
+      url={https://arxiv.org/abs/2512.19432},
+}</code></pre>
+                                        <button class="button is-small is-fullwidth mt-2" id="copy-cite-btn">
+                                            <span class="icon"><i class="fas fa-copy"></i></span>
+                                            <span>Copy</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -340,6 +377,23 @@
                     ticking = true;
                 }
             }, { passive: true });
+
+            const copyCiteBtn = document.getElementById('copy-cite-btn');
+            if (copyCiteBtn) {
+                copyCiteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const bibtex = copyCiteBtn.closest('.dropdown-item').querySelector('code').textContent;
+                    navigator.clipboard.writeText(bibtex).then(() => {
+                        const originalHTML = copyCiteBtn.innerHTML;
+                        copyCiteBtn.innerHTML = '<span class="icon"><i class="fas fa-check"></i></span><span>Copied!</span>';
+                        copyCiteBtn.classList.add('is-success');
+                        setTimeout(() => {
+                            copyCiteBtn.innerHTML = originalHTML;
+                            copyCiteBtn.classList.remove('is-success');
+                        }, 2000);
+                    });
+                });
+            }
         });
 
         (async function () {
@@ -357,33 +411,43 @@
                 if (!resp.ok) throw new Error(`Post not found (${resp.status})`);
                 const md = await resp.text();
 
-                marked.setOptions({
-                    highlight: function (code, lang) {
+                const mdi = markdownit({
+                    html: true,
+                    linkify: true,
+                    typographer: false,
+                    highlight: function (str, lang) {
                         if (lang && hljs.getLanguage(lang)) {
-                            return hljs.highlight(code, { language: lang }).value;
+                            try { return hljs.highlight(str, { language: lang }).value; }
+                            catch (_) {}
                         }
-                        return hljs.highlightAuto(code).value;
-                    },
-                    breaks: false,
-                    gfm: true,
+                        return '';
+                    }
                 });
 
-                container.innerHTML = marked.parse(md);
+                container.innerHTML = mdi.render(md.replace(/\u00a0/g, ' '));
                 document.title = container.querySelector('h1')?.textContent + ' – MobileWorld Blog' || document.title;
 
-                // Replace hyphens with non-breaking hyphens (U+2011) in text nodes
-                // to prevent unwanted line breaks at hyphens. Skip <code> and <pre>.
-                function replaceHyphens(node) {
+                // Prevent unwanted line breaks at hyphens/dashes in text nodes.
+                // - Replace ASCII hyphen with non-breaking hyphen (U+2011)
+                // - Surround en-dash/em-dash with word-joiners (U+2060) so
+                //   the browser won't break the line at those characters.
+                // Skip <code>, <pre>, <a>.
+                const DASH_RE = /-|\u2013|\u2014/g;
+                function fixDashes(node) {
                     if (node.nodeType === Node.TEXT_NODE) {
-                        if (node.textContent.includes('-')) {
-                            node.textContent = node.textContent.replace(/-/g, '\u2011');
+                        if (DASH_RE.test(node.textContent)) {
+                            DASH_RE.lastIndex = 0;
+                            node.textContent = node.textContent.replace(DASH_RE, function (m) {
+                                if (m === '-') return '\u2011';
+                                return '\u2060' + m + '\u2060';
+                            });
                         }
                     } else if (node.nodeType === Node.ELEMENT_NODE &&
                                !['CODE', 'PRE', 'A'].includes(node.tagName)) {
-                        node.childNodes.forEach(replaceHyphens);
+                        node.childNodes.forEach(fixDashes);
                     }
                 }
-                replaceHyphens(container);
+                fixDashes(container);
 
                 // Wrap tables for horizontal scroll on mobile
                 container.querySelectorAll('table').forEach(table => {
