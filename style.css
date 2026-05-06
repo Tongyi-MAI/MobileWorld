@@ -244,7 +244,7 @@ html {
 }
 
 .lb-desc {
-    font-size: 0.95rem;
+    font-size: 1rem;
     color: #1a1a1a;
     line-height: 1.6;
     margin-bottom: 1rem;
@@ -279,7 +279,7 @@ html {
 }
 
 .lb-filter-label {
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     color: #aaa;
     font-weight: 500;
     margin-right: 0.1rem;
@@ -469,7 +469,7 @@ html {
     border-color: #eee !important;
     font-weight: 600;
     text-transform: uppercase;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     letter-spacing: 0.5px;
     padding: 0.85rem 0.6rem;
     border-bottom: 1px solid #eee !important;
@@ -569,7 +569,7 @@ html {
     display: inline-block;
     padding: 0.2rem 0.5rem;
     border-radius: 4px;
-    font-size: 0.7rem !important;
+    font-size: 0.9rem !important;
     font-weight: 600;
     white-space: nowrap;
     border: none;
@@ -589,7 +589,7 @@ html {
 /* Overall score */
 .overall-score {
     color: #1a1a1a !important;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-variant-numeric: tabular-nums;
 }
 
@@ -613,7 +613,7 @@ html {
 /* Score cells */
 .osworld-leaderboard-table tbody td.has-text-centered {
     font-variant-numeric: tabular-nums;
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: #333;
 }
 
@@ -812,7 +812,7 @@ a:hover {
 
     .osworld-leaderboard-table thead th {
         padding: 0.6rem 0.35rem;
-        font-size: 0.7rem;
+        font-size: 1rem;
     }
 
     .osworld-leaderboard-table tbody td {
@@ -914,7 +914,7 @@ a:hover {
     border: none;
     cursor: pointer;
     color: #bbb;
-    font-size: 0.85rem;
+    font-size: 1rem;
     padding: 0.2rem 0.3rem;
     transition: color 0.15s;
 }
@@ -925,7 +925,7 @@ a:hover {
 
 .osworld-leaderboard-table a.arena-link-btn {
     color: #bbb;
-    font-size: 0.85rem;
+    font-size: 1rem;
     padding: 0.2rem 0.3rem;
     transition: color 0.15s;
     text-decoration: none;
