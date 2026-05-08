@@ -216,7 +216,7 @@ The intuition seems obvious: let the model reason through the problem, and it sh
 
 Free-form reasoning hardly benefits GUI grounding. This aligns with recent findings from [UI-Ins](https://arxiv.org/pdf/2510.20286), which demonstrate that "Instruction-as-Reasoning" — using low-level, observation-focused instructions as the reasoning content — consistently outperforms free-form reasoning for GUI grounding. We show those perceptual and useful reasoning perspectives in Figure 2 (from [UI-Ins](https://arxiv.org/pdf/2510.20286)).
 
-![Reasoning perspectives](blog_posts/Why%20your%20AI%20Agent%20keeps%20misclicking/image.png)
+<p align="center"><img src="Why%20your%20AI%20Agent%20keeps%20misclicking%20A%20Practical%20Gu/image.png" width="50%" /></p>
 
 **Figure 2.** Diverse instruction perspectives in GUI grounding.
 
