@@ -1,5 +1,7 @@
 ---
 authors: Quyu Kong, Xu Zhang, Hanzhang Zhou, Liangyu Chen, Yue Wang
+description: We adapted Gemini 3 Pro, Claude Sonnet 4.5, Kimi K2.5, Qwen-3.5, and Seed-2.0-Pro for end-to-end mobile-use evaluation on MobileWorld. Seed-2.0-Pro tops the leaderboard at 62.7%, surpassing the best agentic framework.
+image: blog_posts/MobileWorld%20Update%20Can%20Frontier%20Models%20Really%20Control%20Your%20Phone/mobileworld_banner_v8.jpg
 ---
 
 # MobileWorld Update: Can Frontier Models Really Control Your Phone? Evaluating End-to-End Mobile-Use on Real Devices

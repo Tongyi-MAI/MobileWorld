@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://tongyi-mai.github.io/MobileWorld/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://tongyi-mai.github.io/MobileWorld/blog.html</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://tongyi-mai.github.io/MobileWorld/arena.html</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://tongyi-mai.github.io/MobileWorld/blog_post.html?post=Evaluating%20two%20model%20upgrades%20on%20MobileWorld</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://tongyi-mai.github.io/MobileWorld/blog_post.html?post=MobileWorld%20Update%20Can%20Frontier%20Models%20Really%20Control%20Your%20Phone</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://tongyi-mai.github.io/MobileWorld/blog_post.html?post=Why%20your%20AI%20Agent%20keeps%20misclicking</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+</urlset>

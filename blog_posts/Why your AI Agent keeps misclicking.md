@@ -1,5 +1,7 @@
 ---
 authors: Liangyu Chen, Hanzhang Zhou, Quyu Kong, Xu Zhang, Wenxuan Wang, Qin Jin, Yue Wang
+description: Reproducing reported GUI grounding numbers takes more than the model -- it takes the right coordinate system, image resize, and zoom-in tool. We benchmark Gemini 3 Pro, Claude Sonnet 4.5, Seed1.8, Kimi-K2.5, and MAI-UI on OSWorld-G and ScreenSpot-Pro.
+image: blog_posts/Why%20your%20AI%20Agent%20keeps%20misclicking/Blog.png
 ---
 
 # Why your AI Agent keeps misclicking? A Practical Guide to GUI Grounding for Frontier Models

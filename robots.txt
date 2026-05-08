@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tongyi-mai.github.io/MobileWorld/sitemap.xml

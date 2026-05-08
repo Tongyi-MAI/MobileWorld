@@ -5,6 +5,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blog – MobileWorld</title>
+    <meta name="description" content="Research updates and analysis from the MobileWorld benchmark team." id="meta-description">
+
+    <!-- Open Graph / Twitter (updated client-side from post frontmatter) -->
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Blog – MobileWorld" id="og-title">
+    <meta property="og:description" content="Research updates and analysis from the MobileWorld benchmark team." id="og-description">
+    <meta property="og:url" content="https://tongyi-mai.github.io/MobileWorld/blog.html" id="og-url">
+    <meta property="og:image" content="https://tongyi-mai.github.io/MobileWorld/assets/banner_poster.jpg" id="og-image">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Blog – MobileWorld" id="tw-title">
+    <meta name="twitter:description" content="Research updates and analysis from the MobileWorld benchmark team." id="tw-description">
+    <meta name="twitter:image" content="https://tongyi-mai.github.io/MobileWorld/assets/banner_poster.jpg" id="tw-image">
+    <link rel="canonical" href="https://tongyi-mai.github.io/MobileWorld/blog.html" id="canonical-link">
+
+    <meta name="google-site-verification" content="kjMZV7GMfaOB_viMzX709NKwCzkU50OnzUs5dDBHoO0">
 
     <!-- Bulma CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
@@ -455,7 +470,29 @@
                 });
 
                 container.innerHTML = mdi.render(md.replace(/\u00a0/g, ' '));
-                document.title = container.querySelector('h1')?.textContent + ' – MobileWorld Blog' || document.title;
+                const titleText = container.querySelector('h1')?.textContent || 'Blog';
+                document.title = titleText + ' – MobileWorld Blog';
+
+                // Update meta description, OG, Twitter, and canonical from frontmatter
+                const postUrl = `https://tongyi-mai.github.io/MobileWorld/blog_post.html?post=${encodeURIComponent(post)}`;
+                const desc = meta.description || 'Research updates and analysis from the MobileWorld benchmark team.';
+                const setAttr = (id, attr, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.setAttribute(attr, val);
+                };
+                setAttr('meta-description', 'content', desc);
+                setAttr('og-title', 'content', titleText);
+                setAttr('og-description', 'content', desc);
+                setAttr('og-url', 'content', postUrl);
+                setAttr('tw-title', 'content', titleText);
+                setAttr('tw-description', 'content', desc);
+                setAttr('canonical-link', 'href', postUrl);
+                if (meta.image) {
+                    const imgUrl = /^https?:/.test(meta.image) ? meta.image
+                        : `https://tongyi-mai.github.io/MobileWorld/${meta.image}`;
+                    setAttr('og-image', 'content', imgUrl);
+                    setAttr('tw-image', 'content', imgUrl);
+                }
 
                 // Insert authors meta block right after the title
                 if (meta.authors) {

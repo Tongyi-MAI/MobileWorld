@@ -1,5 +1,6 @@
 ---
 authors: Quyu Kong, Yue Wang
+description: We ran Anthropic Opus 4.6 -> 4.7 and Moonshot Kimi K2.5 -> K2.6 through MobileWorld's 161-task benchmark. Opus gains +15.5pp, Kimi +9.3pp; the largest source of improvement in both is loop-breaking.
 ---
 
 # Evaluating two model upgrades on MobileWorld
