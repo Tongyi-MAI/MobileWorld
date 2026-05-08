@@ -1,5 +1,5 @@
 ---
-authors: MobileWorld Team
+authors: Quyu Kong, Yue Wang
 ---
 
 # Evaluating two model upgrades on MobileWorld

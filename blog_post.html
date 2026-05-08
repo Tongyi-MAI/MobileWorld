@@ -114,7 +114,7 @@
             display: list-item;
         }
 
-        .post-content li > p {
+        .post-content li>p {
             margin-bottom: 0.4rem;
         }
 
@@ -246,6 +246,14 @@
 
         .post-meta-authors {
             color: #555;
+        }
+
+        .post-meta-author {
+            font-size: 0.82rem;
+            color: #999;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
         }
 
         /* Responsive table wrapper */
@@ -440,7 +448,7 @@
                     highlight: function (str, lang) {
                         if (lang && hljs.getLanguage(lang)) {
                             try { return hljs.highlight(str, { language: lang }).value; }
-                            catch (_) {}
+                            catch (_) { }
                         }
                         return '';
                     }
@@ -455,7 +463,7 @@
                     if (h1) {
                         const metaEl = document.createElement('div');
                         metaEl.className = 'post-meta';
-                        metaEl.innerHTML = `<span class="post-meta-item post-meta-authors"><i class="far fa-user"></i>${meta.authors}</span>`;
+                        metaEl.innerHTML = `<span class="post-meta-item post-meta-authors">${meta.authors}</span>`;
                         h1.insertAdjacentElement('afterend', metaEl);
                     }
                 }
@@ -476,7 +484,7 @@
                             });
                         }
                     } else if (node.nodeType === Node.ELEMENT_NODE &&
-                               !['CODE', 'PRE', 'A'].includes(node.tagName)) {
+                        !['CODE', 'PRE', 'A'].includes(node.tagName)) {
                         node.childNodes.forEach(fixDashes);
                     }
                 }
