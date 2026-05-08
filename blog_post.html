@@ -226,19 +226,26 @@
 
         .post-meta {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 2rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid #eee;
+            gap: 0.75rem 1.25rem;
+            margin: -0.25rem 0 1.75rem;
+            font-size: 0.85rem;
+            color: #888;
         }
 
-        .post-meta-date {
-            font-size: 0.82rem;
-            color: #999;
-            display: flex;
+        .post-meta-item {
+            display: inline-flex;
             align-items: center;
-            gap: 0.35rem;
+            gap: 0.4rem;
+        }
+
+        .post-meta-item i {
+            color: #bbb;
+        }
+
+        .post-meta-authors {
+            color: #555;
         }
 
         /* Responsive table wrapper */
@@ -409,7 +416,22 @@
             try {
                 const resp = await fetch(`blog_posts/${post}.md`);
                 if (!resp.ok) throw new Error(`Post not found (${resp.status})`);
-                const md = await resp.text();
+                let md = await resp.text();
+
+                // Parse optional YAML-style frontmatter (--- ... ---)
+                const meta = {};
+                const fmMatch = md.match(/^---\n([\s\S]*?)\n---\n?/);
+                if (fmMatch) {
+                    fmMatch[1].split('\n').forEach(line => {
+                        const idx = line.indexOf(':');
+                        if (idx > -1) {
+                            const k = line.slice(0, idx).trim();
+                            const v = line.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+                            if (k) meta[k] = v;
+                        }
+                    });
+                    md = md.slice(fmMatch[0].length);
+                }
 
                 const mdi = markdownit({
                     html: true,
@@ -426,6 +448,17 @@
 
                 container.innerHTML = mdi.render(md.replace(/\u00a0/g, ' '));
                 document.title = container.querySelector('h1')?.textContent + ' – MobileWorld Blog' || document.title;
+
+                // Insert authors meta block right after the title
+                if (meta.authors) {
+                    const h1 = container.querySelector('h1');
+                    if (h1) {
+                        const metaEl = document.createElement('div');
+                        metaEl.className = 'post-meta';
+                        metaEl.innerHTML = `<span class="post-meta-item post-meta-authors"><i class="far fa-user"></i>${meta.authors}</span>`;
+                        h1.insertAdjacentElement('afterend', metaEl);
+                    }
+                }
 
                 // Prevent unwanted line breaks at hyphens/dashes in text nodes.
                 // - Replace ASCII hyphen with non-breaking hyphen (U+2011)

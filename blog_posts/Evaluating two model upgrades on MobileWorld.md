@@ -1,3 +1,7 @@
+---
+authors: MobileWorld Team
+---
+
 # Evaluating two model upgrades on MobileWorld
 
 We ran two recent model upgrades — Anthropic's Opus 4.6 → 4.7 and Moonshot's Kimi K2.5 → K2.6 — through MobileWorld, our 161-task benchmark for mobile GUI agents driving an Android phone. This post summarizes what changed in each upgrade.
