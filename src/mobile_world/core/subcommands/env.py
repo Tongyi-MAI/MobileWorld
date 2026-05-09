@@ -145,12 +145,19 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
     launch_parser.add_argument(
         "--vnc",
         action="store_true",
-        help="[Legacy alias for --viewer] Enable web-scrcpy viewer",
+        help="[Legacy] Kept for backward compatibility; the web-scrcpy viewer is now enabled by default",
     )
     launch_parser.add_argument(
         "--viewer",
         action="store_true",
-        help="Enable web-scrcpy viewer (accessible via viewer port)",
+        help="[Legacy] No-op; the web-scrcpy viewer is now enabled by default. Use --no-viewer to disable.",
+    )
+    launch_parser.add_argument(
+        "--no-viewer",
+        "--no_viewer",
+        dest="no_viewer",
+        action="store_true",
+        help="Disable the web-scrcpy device viewer (saves ~30 MB RSS per container)",
     )
     launch_parser.add_argument(
         "--dry-run",
@@ -515,7 +522,7 @@ def _launch_containers(args: argparse.Namespace) -> None:
             image=args.image,
             dev_mode=args.dev,
             enable_vnc=args.vnc or args.dev,
-            enable_viewer=getattr(args, "viewer", False) or args.vnc or args.dev,
+            enable_viewer=not getattr(args, "no_viewer", False),
             env_file_path=env_file_path,
             dev_src_path=dev_src_path,
             http_proxy=args.http_proxy,
