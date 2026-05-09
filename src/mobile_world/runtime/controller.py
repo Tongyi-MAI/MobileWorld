@@ -405,6 +405,9 @@ class AndroidController:
                 logger.info(f"Successfully loaded snapshot: {tag}")
                 # Wait a moment for the snapshot to fully load
                 time.sleep(3)
+                # Re-apply system proxy: snapshot revert wipes Settings.Global,
+                # which start_emulator.sh populated only after boot.
+                self._reapply_android_proxy_if_configured()
                 return True
             else:
                 logger.error(
@@ -414,6 +417,35 @@ class AndroidController:
         except Exception as e:
             logger.error(f"Failed to load snapshot {tag}: {e}")
             return False
+
+    def _reapply_android_proxy_if_configured(self) -> None:
+        """Re-apply Settings.Global.http_proxy after a snapshot revert.
+
+        proxy_chain.py is a host-side process that survives the revert, but
+        the emulator forgets to route through it because Settings.Global is
+        part of the snapshotted system DB. Without this, post-revert traffic
+        from Android apps bypasses the user's proxy and fails on networks
+        where direct internet egress is blocked.
+
+        No-op when the container was launched without --http-proxy.
+        """
+        upstream = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+        if not upstream:
+            return
+        # Default mirrors start_emulator.sh's LOCAL_PROXY_PORT default.
+        local_port = os.environ.get("LOCAL_PROXY_PORT", "38888")
+        for key, value in (
+            ("http_proxy", f"10.0.2.2:{local_port}"),
+            ("global_http_proxy_host", "10.0.2.2"),
+            ("global_http_proxy_port", local_port),
+        ):
+            execute_adb(
+                f"adb -s {self.device} shell settings put global {key} {value}"
+            )
+        logger.info(
+            f"Re-applied Android proxy after snapshot revert → "
+            f"10.0.2.2:{local_port} (chain → {upstream})"
+        )
 
     def activate_adb_keyboard(self):
         execute_adb("adb shell ime set com.android.adbkeyboard/.AdbIME")
