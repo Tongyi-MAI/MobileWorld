@@ -1,8 +1,14 @@
-FROM ghcr.io/tongyi-mai/mobile_world:latest
+FROM ghcr.io/tongyi-mai/mobile_world:v1
 
 # Install socat (added after initial release for ADB port relay)
 RUN apt-get update && apt-get install -y --no-install-recommends socat && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# aiohttp for the web-scrcpy WebSocket<->ADB proxy (ws_adb_proxy.py).
+# Old VNC stack (xvfb/x11vnc/openbox/novnc/websockify) is left installed but
+# unused — entrypoint.sh no longer launches it. This avoids a full base-image
+# rebuild; if/when we cut a new base image we can drop those packages there.
+RUN pip install --break-system-packages --no-cache aiohttp
 
 # Switch to iptables-nft backend for compatibility with host kernels (6.x+)
 # that have dropped the legacy iptable_nat module in favor of nftables-only NAT.
@@ -10,11 +16,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends socat && \
 RUN update-alternatives --set iptables /usr/sbin/iptables-nft && \
     update-alternatives --set ip6tables /usr/sbin/ip6tables-nft
 
-# Copy updated source code
+# Copy updated source code (carries the --viewer / ENABLE_VIEWER plumbing)
 COPY src/ /app/service/src/
 
-# Copy updated entrypoint (iptables auto-detection + dockerd health check
-# + outbound HTTP proxy normalization)
+# web-scrcpy viewer: vendored panda-web-scrcpy frontend (Apache 2.0) +
+# WebSocket-to-ADB proxy. Replaces the old VNC viewer and the Python
+# `mobile-world viewer` Gradio app — single ~120-line aiohttp process now
+# serves both the static UI and the scrcpy stream.
+COPY docker/web-scrcpy /app/web-scrcpy
+COPY docker/ws_adb_proxy.py /app/docker/ws_adb_proxy.py
+RUN chmod +x /app/docker/ws_adb_proxy.py
+
+# Copy updated entrypoint (web-scrcpy launch + iptables auto-detection
+# + dockerd health check + outbound HTTP proxy normalization)
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

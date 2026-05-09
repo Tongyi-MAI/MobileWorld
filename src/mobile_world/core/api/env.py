@@ -175,6 +175,7 @@ def build_container_config(
     adb_port: int = 5556,
     dev_mode: bool = False,
     enable_vnc: bool = False,
+    enable_viewer: bool = False,
     env_file_path: Path | None = None,
     dev_src_path: Path | None = None,
     index: int | None = None,
@@ -191,6 +192,7 @@ def build_container_config(
         adb_port: ADB port
         dev_mode: Enable dev mode
         enable_vnc: Enable VNC
+        enable_viewer: Enable web-scrcpy viewer
         env_file_path: Path to .env file
         dev_src_path: Path to src directory for dev mode
         index: Container index (auto-determined if None)
@@ -213,6 +215,7 @@ def build_container_config(
         image=image,
         dev_mode=dev_mode,
         enable_vnc=enable_vnc,
+        enable_viewer=enable_viewer,
         env_file_path=env_file_path,
         dev_src_path=dev_src_path,
         http_proxy=http_proxy,
@@ -247,11 +250,19 @@ def launch_container(
     envs: dict[str, str] = {}
     if config.enable_vnc or config.dev_mode:
         envs["ENABLE_VNC"] = "true"
+    if config.enable_viewer:
+        envs["ENABLE_VIEWER"] = "true"
     if config.http_proxy:
         envs["http_proxy"] = config.http_proxy
         envs["https_proxy"] = config.http_proxy
         envs["HTTP_PROXY"] = config.http_proxy
         envs["HTTPS_PROXY"] = config.http_proxy
+        # NO_PROXY must be passed at `docker run -e` time so it's visible to
+        # every fresh process in the container — `docker exec` shells, the
+        # HEALTHCHECK, etc. The entrypoint's own `export NO_PROXY=...` only
+        # propagates to processes it spawns directly.
+        envs["no_proxy"] = "10.0.2.2,127.0.0.1,localhost,::1"
+        envs["NO_PROXY"] = "10.0.2.2,127.0.0.1,localhost,::1"
 
     volumes: list[tuple[str, str]] = []
     if config.dev_src_path:
@@ -307,6 +318,7 @@ def launch_containers(
     adb_start_port: int = 5556,
     dev_mode: bool = False,
     enable_vnc: bool = False,
+    enable_viewer: bool = False,
     env_file_path: Path | None = None,
     dev_src_path: Path | None = None,
     launch_interval: int = 10,
@@ -325,6 +337,7 @@ def launch_containers(
         adb_start_port: Starting ADB port
         dev_mode: Enable dev mode (single container only)
         enable_vnc: Enable VNC
+        enable_viewer: Enable web-scrcpy viewer
         env_file_path: Path to .env file
         dev_src_path: Path to src directory for dev mode
         launch_interval: Seconds between launching containers
@@ -358,6 +371,7 @@ def launch_containers(
             image=image,
             dev_mode=dev_mode,
             enable_vnc=enable_vnc,
+            enable_viewer=enable_viewer,
             env_file_path=env_file_path,
             dev_src_path=dev_src_path,
         )

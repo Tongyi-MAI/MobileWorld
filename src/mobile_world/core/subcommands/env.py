@@ -153,7 +153,12 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
     launch_parser.add_argument(
         "--vnc",
         action="store_true",
-        help="Enable VNC support with GUI (accessible via VNC port)",
+        help="[Legacy alias for --viewer] Enable web-scrcpy viewer",
+    )
+    launch_parser.add_argument(
+        "--viewer",
+        action="store_true",
+        help="Enable web-scrcpy viewer (accessible via viewer port)",
     )
     launch_parser.add_argument(
         "--dry-run",
@@ -475,6 +480,7 @@ def _launch_containers(args: argparse.Namespace) -> None:
             image=args.image,
             dev_mode=args.dev,
             enable_vnc=args.vnc or args.dev,
+            enable_viewer=getattr(args, "viewer", False) or args.vnc or args.dev,
             env_file_path=env_file_path,
             dev_src_path=dev_src_path,
             http_proxy=args.http_proxy,
@@ -517,11 +523,19 @@ def _launch_containers(args: argparse.Namespace) -> None:
             envs: dict[str, str] = {}
             if config.enable_vnc or config.dev_mode:
                 envs["ENABLE_VNC"] = "true"
+            if config.enable_viewer:
+                envs["ENABLE_VIEWER"] = "true"
             if config.http_proxy:
                 envs["http_proxy"] = config.http_proxy
                 envs["https_proxy"] = config.http_proxy
                 envs["HTTP_PROXY"] = config.http_proxy
                 envs["HTTPS_PROXY"] = config.http_proxy
+                # NO_PROXY must be passed at `docker run -e` time so it's
+                # visible to every fresh process in the container —
+                # `docker exec` shells, the HEALTHCHECK, etc. The entrypoint's
+                # `export NO_PROXY=...` only reaches its own children.
+                envs["no_proxy"] = "10.0.2.2,127.0.0.1,localhost,::1"
+                envs["NO_PROXY"] = "10.0.2.2,127.0.0.1,localhost,::1"
 
             volumes: list[tuple[str, str]] = []
             if config.dev_src_path:
