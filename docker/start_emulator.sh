@@ -7,18 +7,10 @@ if [ "${AVD_NAME}" = "Pixel_6_API_33" ]; then
   export options="$options -grpc 8554"
 fi
 echo "Starting emulator with options: $options"
-# Start emulator with or without VNC based on ENABLE_VNC environment variable
-if [ "${ENABLE_VNC:-false}" = "true" ] || [ "${ENABLE_VNC:-false}" = "1" ]; then
-    echo "VNC enabled, starting with GUI..."
-    export DISPLAY=:0
-    # BUGFIX: if starting vnc, set android emulator config.ini to hw.keyboard = yes. Now make it yes by default so comment out this line.
-    # sed -i 's/hw.keyboard = no/hw.keyboard = yes/' /root/.android/avd/${AVD_NAME}.avd/config.ini
-
-    nohup emulator -avd ${AVD_NAME} $options > /var/log/emulator.log 2>&1 & 
-else
-    echo "VNC disabled, starting headless emulator..."
-    nohup emulator -avd ${AVD_NAME} -no-window $options > /var/log/emulator.log 2>&1 &
-fi
+# Always run the emulator headless. The web-scrcpy viewer connects via ADB
+# + scrcpy protocol and does not need an X display. The legacy GUI path
+# required xvfb+x11vnc, which were retired with the VNC stack.
+nohup emulator -avd ${AVD_NAME} -no-window $options > /var/log/emulator.log 2>&1 &
 
 # code from: https://github.com/google-research/android_world/blob/main/docker_setup/start_emu_headless.sh
 BL='\033[0;34m'
