@@ -330,9 +330,53 @@ def _wait_for_container_ready_with_progress(
     return False
 
 
+def _validate_http_proxy(url: str) -> None:
+    """Validate --http-proxy is a usable proxy URL; exit with a friendly error if not.
+
+    Catches the most common mistake — accidentally pasting a shell-style
+    assignment like `https_proxy=http://host:port` — plus missing scheme,
+    missing host, and malformed port.
+    """
+    from urllib.parse import urlparse
+
+    err: str | None = None
+    if "=" in url:
+        err = (
+            f"looks like a shell variable assignment, not a URL: {url!r}. "
+            "Pass just the URL value, e.g. --http-proxy http://proxy.host:8888"
+        )
+    else:
+        try:
+            parsed = urlparse(url)
+            _ = parsed.port  # raises ValueError on a non-numeric / out-of-range port
+        except ValueError as exc:
+            err = f"could not parse {url!r}: {exc}"
+        else:
+            if parsed.scheme not in {"http", "https", "socks4", "socks5", "socks5h"}:
+                err = (
+                    f"unsupported scheme {parsed.scheme!r} in {url!r}; "
+                    "expected http://, https://, or socks5:// (etc.)"
+                )
+            elif not parsed.hostname:
+                err = f"no host found in {url!r}"
+
+    if err:
+        console.print(
+            Panel(
+                f"[red]Invalid --http-proxy:[/red] {err}",
+                title="[red]✗ Invalid --http-proxy[/red]",
+                border_style="red",
+            )
+        )
+        sys.exit(1)
+
+
 def _launch_containers(args: argparse.Namespace) -> None:
     """Launch Docker containers."""
     count = args.count
+
+    if args.http_proxy:
+        _validate_http_proxy(args.http_proxy)
 
     # Dev mode only allows single container
     if args.dev and count > 1:
