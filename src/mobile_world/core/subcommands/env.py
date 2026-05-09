@@ -177,8 +177,13 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
         "--mount-src",
         "--mount_src",
         dest="mount_src",
-        action="store_true",
-        help="Mount local src directory to container",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Mount local src directory to container. "
+            "Auto-enabled when ./src exists in the current directory; "
+            "pass --no-mount-src to opt out."
+        ),
     )
     launch_parser.add_argument(
         "--launch-interval",
@@ -384,6 +389,11 @@ def _launch_containers(args: argparse.Namespace) -> None:
 
     if args.http_proxy:
         _validate_http_proxy(args.http_proxy)
+
+    # Auto-enable --mount-src when ./src exists and the user didn't pass an
+    # explicit --mount-src / --no-mount-src override.
+    if args.mount_src is None:
+        args.mount_src = (Path.cwd() / "src").is_dir()
 
     # Dev mode only allows single container
     if args.dev and count > 1:
