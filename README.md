@@ -42,6 +42,10 @@ While maintaining the same level of rigorous, reproducible evaluation as Android
 </p>
 
 ## 📢 Updates
+- **2026-05-09: Lightweight Web Viewer & Proxy-Aware Containers (image v1.4)** 🆕
+    * 🪟 **Replaced VNC with web-scrcpy:** the heavy xvfb / x11vnc / openbox / novnc / websockify stack is gone, replaced by a single ~120-line aiohttp WebSocket→ADB proxy. H.264 hardware-decoded streaming at ~30 fps, full touch/keyboard control, on by default.
+    * 🌐 **Proper outbound HTTP-proxy support:** `--http-proxy` now configures both the in-container Python stack and the Android emulator's system-wide proxy, with automatic re-application after every snapshot revert. See [Network & Proxy](#-network--proxy) below.
+    * ⚠️ **Action required:** pull the new image before launching containers — `mw env check` will detect the stale digest and prompt for the upgrade. Mixing the new CLI with an older image can leave dev-mode users without a viewable screen.
 - **2026-04-29: Head-to-Head Arena & Community Submissions🔥**
     * 🆚 **New Arena Comparison Page:** Compare any two models side-by-side at [tongyi-mai.github.io/MobileWorld/arena](https://tongyi-mai.github.io/MobileWorld/arena). Renders both trajectories step-by-step with screenshots and thinking traces, plus a confusion matrix to filter tasks by outcome (both pass / both fail / one wins / the other wins).
     * 📤 **Submit Your Results:** Community-contributed trajectories are now accepted via [`site/bundle_trajs.py`](site/bundle_trajs.py). See [docs/submit.md](docs/submit.md).
@@ -58,6 +62,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 - [Overview](#-overview)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
+- [Network & Proxy](#-network--proxy)
 - [Testing on Real Devices](#-testing-on-real-devices)
 - [Available Commands](#-available-commands)
 - [Documentation](#-documentation)
@@ -212,6 +217,73 @@ uv run mw logs view --log_dir traj_logs/qwen3_vl_logs
 ```
 
 Opens an interactive web-based visualization at `http://localhost:8760` to explore task trajectories and results.
+
+---
+
+## 🌐 Network & Proxy
+
+> **⚠️ Heads-up:** the proxy plumbing described below requires Docker image **v1.4 or newer**. If you upgraded the codebase but kept an older image, run `sudo uv run mw env check` — it will compare digests and offer to pull. Mixing a new CLI with a pre-v1.4 image will *appear* to work but the Android emulator will silently bypass your proxy after the first task initialization (the snapshot revert wipes `Settings.Global.http_proxy`, and pre-v1.4 containers lack the runtime that re-applies it).
+
+If you can reach `pypi.org`, `github.com`, and the public internet directly from the host, you can skip this section — `mw env run` works out of the box without `--http-proxy`.
+
+### When to use `--http-proxy`
+
+Pass `--http-proxy` whenever the host running the container sits behind a corporate egress proxy. Example:
+
+```bash
+sudo uv run mw env run --count 1 --http-proxy http://proxy.host:8888
+```
+
+The flag is validated client-side — common typos like `--http-proxy "https_proxy=http://..."` (a shell-style assignment instead of a URL) are rejected before any container is launched.
+
+### What gets configured (and where)
+
+When `--http-proxy <URL>` is set, three layers cooperate so that **every** outbound request from inside the container goes through your proxy, while loopback / emulator-internal traffic stays local:
+
+```
+                ┌─────────── container ────────────┐                 ┌──────────────┐
+host ─[adb]──→  │ socat → adbd                     │                 │              │
+                │                                  │                 │              │
+                │ ┌──────── Android emulator ───┐  │                 │              │
+                │ │ Apps                        │  │                 │              │
+                │ │   ↓ (Settings.Global)       │  │                 │              │
+                │ │ http_proxy = 10.0.2.2:38888 │  │                 │              │
+                │ └─────────────────────────────┘  │                 │              │
+                │            ↓ (10.0.2.2 routes    │                 │              │
+                │             to container loopback)                 │              │
+                │  ┌──────────────────────┐        │                 │              │
+                │  │ proxy_chain.py :38888│ ──[direct] for 10.0.2.x ┤              │
+                │  │  - bypass 10.0.2.x   │ ──[forward] all else ──→│ Upstream HTTP│
+                │  │  - bypass 127.*      │                          │  proxy       │
+                │  │  - forward rest      │                          │              │
+                │  └──────────────────────┘                          └──────────────┘
+                │                                  │
+                │ http_proxy / HTTPS_PROXY env →   │
+                │ Python stack (mw server, etc.)   │
+                │                                  │
+                │ NO_PROXY = 10.0.2.2,127.0.0.1,   │
+                │            localhost,::1         │
+                └──────────────────────────────────┘
+```
+
+1. **Python stack inside the container** sees `HTTP_PROXY` / `HTTPS_PROXY` set to your URL via `docker run -e` so `pip`, `uv`, `requests`, `httpx` all honor it without code changes.
+2. **`NO_PROXY=10.0.2.2,127.0.0.1,localhost,::1` is also passed at `docker run -e` time** (not just exported by the entrypoint) so the Docker `HEALTHCHECK` and any `docker exec` shell inherit it. Without this, `curl http://localhost:6800/health` from inside the container would route through your external proxy and fail.
+3. **Android system-wide proxy** is set by `start_emulator.sh` to `10.0.2.2:38888`, where `10.0.2.2` is the emulator's view of the container's loopback. A small in-container helper, `proxy_chain.py`, listens on 38888 and decides per-destination: 10.0.2.x and loopback go direct (otherwise the emulator couldn't reach Mattermost / Mastodon / etc. that we run inside the container), and everything else is forwarded to your upstream proxy.
+4. **After every snapshot revert** (which happens at the start of every task because each task loads `init_state`), `AndroidController._reapply_android_proxy_if_configured()` re-issues the three `Settings.Global.http_proxy` writes via `adb`. The chain proxy keeps running across reverts, but Android forgets to point at it; this method patches it back up.
+
+### What `--http-proxy` does *not* affect
+
+- The host's own network — your local shell, `git push`, etc., are unchanged. `mw env run` only injects the proxy into the container it launches.
+- `localhost` reachability from your host machine. If `curl http://localhost:6800/health` on the host (not inside the container) hits your proxy, that's because *your host shell* has `http_proxy` set; add `localhost` to your host's `no_proxy` env to fix.
+- Direct `adb` traffic on `5556`. ADB is exposed as a TCP port-mapping outside the proxy plane.
+
+### Disabling the viewer in proxy-restricted environments
+
+The web-scrcpy viewer is enabled by default. If your fleet runs strictly headless (e.g., CI nodes) and you want to save the ~30 MB / container of an idle aiohttp process, pass `--no-viewer`:
+
+```bash
+sudo uv run mw env run --count 5 --http-proxy http://proxy.host:8888 --no-viewer
+```
 
 ---
 
