@@ -118,14 +118,6 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Starting viewer port number (default: 7860)",
     )
     launch_parser.add_argument(
-        "--vnc-start-port",
-        "--vnc_start_port",
-        dest="vnc_start_port",
-        type=int,
-        default=5800,
-        help="Starting VNC port number (default: 5800)",
-    )
-    launch_parser.add_argument(
         "--adb-start-port",
         "--adb_start_port",
         dest="adb_start_port",
@@ -355,7 +347,7 @@ def _launch_containers(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     port_sets = find_available_ports(
-        args.backend_start_port, args.viewer_start_port, args.vnc_start_port, args.adb_start_port, count
+        args.backend_start_port, args.viewer_start_port, args.adb_start_port, count
     )
 
     if len(port_sets) < count:
@@ -470,12 +462,11 @@ def _launch_containers(args: argparse.Namespace) -> None:
 
     # Pre-compute container configurations
     container_configs = []
-    for i, (backend, viewer, vnc, adb) in enumerate(port_sets):
+    for i, (backend, viewer, adb) in enumerate(port_sets):
         config = ContainerConfig(
             name=f"{args.name_prefix}_{start_index + i}{'_dev' if args.dev else ''}",
             backend_port=backend,
             viewer_port=viewer,
-            vnc_port=vnc,
             adb_port=adb,
             image=args.image,
             dev_mode=args.dev,
@@ -493,7 +484,6 @@ def _launch_containers(args: argparse.Namespace) -> None:
     table.add_column("Name", style="cyan", no_wrap=True)
     table.add_column("Backend", justify="right", style="yellow")
     table.add_column("Viewer", justify="right", style="yellow")
-    table.add_column("VNC", justify="right", style="yellow")
     table.add_column("ADB", justify="right", style="yellow")
 
     for idx, config in enumerate(container_configs, 1):
@@ -502,7 +492,6 @@ def _launch_containers(args: argparse.Namespace) -> None:
             config.name,
             str(config.backend_port),
             str(config.viewer_port),
-            str(config.vnc_port),
             str(config.adb_port),
         )
 
@@ -549,7 +538,6 @@ def _launch_containers(args: argparse.Namespace) -> None:
                 port_mappings=[
                     (config.backend_port, 6800),
                     (config.viewer_port, 7860),
-                    (config.vnc_port, 5800),
                 ],
                 env_vars=envs,
                 volumes=volumes,
@@ -602,7 +590,6 @@ def _launch_containers(args: argparse.Namespace) -> None:
                         "name": config.name,
                         "backend_port": config.backend_port,
                         "viewer_port": config.viewer_port,
-                        "vnc_port": config.vnc_port,
                         "adb_port": config.adb_port,
                         "ready": False,
                     }
@@ -679,8 +666,6 @@ def _launch_containers(args: argparse.Namespace) -> None:
     if not args.dev:
         table.add_column("Viewer", justify="right", style="yellow")
     table.add_column("ADB", justify="right", style="yellow")
-    if args.vnc or args.dev:
-        table.add_column("VNC", justify="right", style="yellow")
     table.add_column("Status", justify="center")
 
     for container in launched:
@@ -696,8 +681,6 @@ def _launch_containers(args: argparse.Namespace) -> None:
         if not args.dev:
             row_data.append(str(container["viewer_port"]))
         row_data.append(str(container["adb_port"]))
-        if args.vnc or args.dev:
-            row_data.append(str(container["vnc_port"]))
         row_data.append(status)
         table.add_row(*row_data)
 
@@ -771,7 +754,6 @@ def _list_containers(args: argparse.Namespace) -> None:
                 "running": c.running,
                 "backend_port": c.backend_port,
                 "viewer_port": c.viewer_port,
-                "vnc_port": c.vnc_port,
             }
             for c in containers
         ]
@@ -796,14 +778,12 @@ def _list_containers(args: argparse.Namespace) -> None:
         table.add_column("Backend", style="yellow", justify="right")
         table.add_column("Viewer", style="yellow", justify="right")
         table.add_column("ADB", style="yellow", justify="right")
-        table.add_column("VNC", style="yellow", justify="right")
 
         for c in containers:
             backend = f"http://0.0.0.0:{c.backend_port}" if c.backend_port else "N/A"
             viewer = f"http://0.0.0.0:{c.viewer_port}" if c.viewer_port else "N/A"
             adb = f"localhost:{c.adb_port}" if c.adb_port else "N/A"
-            vnc = f"http://0.0.0.0:{c.vnc_port}" if c.vnc_port else "N/A"
-            table.add_row(c.name, c.status or "N/A", backend, viewer, adb, vnc)
+            table.add_row(c.name, c.status or "N/A", backend, viewer, adb)
 
         console.print(table)
 
@@ -832,7 +812,6 @@ def _info_container(args: argparse.Namespace) -> None:
             "image": info.image,
             "backend_port": info.backend_port,
             "viewer_port": info.viewer_port,
-            "vnc_port": info.vnc_port,
         }
         sys.stdout.write(json.dumps(output, indent=2) + "\n")
     else:
@@ -861,7 +840,7 @@ def _info_container(args: argparse.Namespace) -> None:
 
         console.print(info_table)
 
-        if info.backend_port or info.viewer_port or info.vnc_port or info.adb_port:
+        if info.backend_port or info.viewer_port or info.adb_port:
             console.print()
             port_table = Table(
                 title="Port Mappings",
@@ -878,8 +857,6 @@ def _info_container(args: argparse.Namespace) -> None:
                 port_table.add_row("Viewer (7860)", str(info.viewer_port))
             if info.adb_port:
                 port_table.add_row("ADB (5556)", str(info.adb_port))
-            if info.vnc_port:
-                port_table.add_row("VNC (5800)", str(info.vnc_port))
 
             console.print(port_table)
 
