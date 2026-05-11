@@ -198,7 +198,7 @@
             <div class="lb-filters">
                 <div class="lb-filter-group lb-toggle-group" data-group="type">
                     <span class="lb-filter-label">Type</span>
-                    <button class="lb-toggle is-active" data-value="agentic">Agentic</button>
+                    <button class="lb-toggle" data-value="agentic">Agentic</button>
                     <button class="lb-toggle is-active" data-value="general">General</button>
                     <button class="lb-toggle is-active" data-value="specialized">Specialized</button>
                 </div>
@@ -206,8 +206,8 @@
                 <div class="lb-filter-group lb-toggle-group" data-group="tasks">
                     <span class="lb-filter-label">Tasks</span>
                     <button class="lb-toggle is-active" data-value="gui-only">GUI-Only</button>
-                    <button class="lb-toggle is-active" data-value="user-int">User-Int.</button>
-                    <button class="lb-toggle is-active" data-value="mcp">MCP</button>
+                    <button class="lb-toggle" data-value="user-int">User-Int.</button>
+                    <button class="lb-toggle" data-value="mcp">MCP</button>
                 </div>
             </div>
 
@@ -659,8 +659,8 @@
 
             // Toggle-group filter state
             const filterState = {
-                type: new Set(['agentic', 'general', 'specialized']),
-                tasks: new Set(['gui-only', 'user-int', 'mcp']),
+                type: new Set(['general', 'specialized']),
+                tasks: new Set(['gui-only']),
             };
 
             function isTypeActive(t) { return filterState.type.has(t); }
