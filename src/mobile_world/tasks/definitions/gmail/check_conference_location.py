@@ -16,8 +16,12 @@ class CheckConferenceLocationTask(BaseTask):
         "Use Google maps to tell me how long it would take to walk from the MIT Stata center to there. Only response the time in minutes. No other text."
     )
     correct_phone_number = "4456547865"
-    expected_message_partial = "110 Mt Auburn St"
-    expected_message_partial_2 = "110 Mt. Auburn St."
+    expected_message_partials = [
+        "110 Mt Auburn St",
+        "110 Mt. Auburn St.",
+        "110 Mount Auburn St",
+        "110 Mount Auburn Street",
+    ]
 
     correct_walk_time = 43
     tolerance_minutes = 10
@@ -56,19 +60,16 @@ class CheckConferenceLocationTask(BaseTask):
         """Check if the correct address is sent and the correct travel time is given."""
         self._check_is_initialized()
 
-        result = check_sms_via_adb(
-            controller,
-            phone_number=self.correct_phone_number,
-            content=self.expected_message_partial,
-        )
+        results = []
+        for partial in self.expected_message_partials:
+            result = check_sms_via_adb(
+                controller,
+                phone_number=self.correct_phone_number,
+                content=partial,
+            )
+            results.append(result)
 
-        result2 = check_sms_via_adb(
-            controller,
-            phone_number=self.correct_phone_number,
-            content=self.expected_message_partial_2,
-        )
-
-        if result or result2:
+        if any(results):
             logger.info(
                 f"Successfully found SMS to {self.correct_phone_number} with correct content"
             )
