@@ -152,11 +152,12 @@ class MattermostVisualInstructionResponseTask(BaseTask):
             phone_found = False
             for contact in contacts:
                 phones = contact.get("phones", [])
-                # Normalize phones for comparison (remove formatting)
+                # Normalize phones to digits only so formatted variants
+                # (e.g. "1 (555) 987-6543", "+1 555-1010") match.
                 phone_numbers = [
-                    p.get("number", "").replace(" ", "").replace("-", "") for p in phones
+                    "".join(filter(str.isdigit, p.get("number", ""))) for p in phones
                 ]
-                clean_expected = expected_phone.replace(" ", "").replace("-", "")
+                clean_expected = "".join(filter(str.isdigit, expected_phone))
 
                 if any(clean_expected in num for num in phone_numbers):
                     phone_found = True

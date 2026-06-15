@@ -311,7 +311,10 @@ class MattermostTechnicalDebtTriageTask(BaseTask):
         contact_found = False
         for contact in contacts:
             phones = contact.get("phones", [])
-            phone_numbers = [p.get("number", "").replace(" ", "").replace("-", "") for p in phones]
+            # Normalize to digits only so formatted variants like "1 (555) 987-6543" match.
+            phone_numbers = [
+                "".join(filter(str.isdigit, p.get("number", ""))) for p in phones
+            ]
             org = contact.get("organization", "").lower()
             if any(self.NEW_CONTACT_PHONE in num for num in phone_numbers):
                 if "techdebt" in org.replace(" ", "").lower() or "solutions" in org.lower():
