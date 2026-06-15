@@ -6,3 +6,4 @@ from .qwen3vl import *
 from .seed import *
 from .ui_venus import *
 from .gui_owl_1_5 import *
+from .memgui import *
