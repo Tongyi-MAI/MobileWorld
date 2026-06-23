@@ -13,7 +13,7 @@ class MattermostReadingGroupTask(BaseTask):
     goal = "Please help me complete the task in mattermost reading group following sam's request."
     snapshot_tag = "init_state"
     PAPER_ID = "2511.21631"
-    MMMU_PRO_SCORE = "68.1"
+    MMMU_PRO_SCORE = ["68.1", "69.3"]
 
     app_names = {"Mattermost", "Chrome"}
 
@@ -59,8 +59,10 @@ class MattermostReadingGroupTask(BaseTask):
                 continue
             if self.PAPER_ID in message[8]:
                 paper_mentioned = True
-            if self.MMMU_PRO_SCORE in message[8]:
-                mmmu_pro_score_mentioned = True
+            for score in self.MMMU_PRO_SCORE:
+                if score in message[8]:
+                    mmmu_pro_score_mentioned = True
+                    break
         if paper_mentioned and mmmu_pro_score_mentioned:
             return 1.0
         return 0.0, "Paper not mentioned or MMMU_Pro score not mentioned"
