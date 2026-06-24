@@ -340,6 +340,10 @@ Benchmarking results and comparisons.""",
         self.bid_files_created = []  # Store info about bid files (name, date, extension)
         self.other_files_created = []  # Store info about non-bid files
 
+    def reset_task_state(self) -> None:
+        self.bid_files_created = []
+        self.other_files_created = []
+
     app_names = {
         "Files",
     }

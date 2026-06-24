@@ -112,6 +112,10 @@ class CVEmailAskUserTask(BaseTask):
         self.cv_files_created = []  # CV files that should be found and sent
         self.recipe_files_created = []  # Recipe files (should not be sent)
 
+    def reset_task_state(self) -> None:
+        self.cv_files_created = []
+        self.recipe_files_created = []
+
     app_names = {"Files", "Mail"}
 
     def initialize_task_hook(self, controller: AndroidController) -> None:

@@ -81,6 +81,11 @@ class ProjectPaperEmailAskUserTask(BaseTask):
         self.other_files_created = []  # Other files in folders (should not be moved)
         self.initial_archive_file = None  # Initial file in target storage folder
 
+    def reset_task_state(self) -> None:
+        self.project_pdf_files = []
+        self.other_files_created = []
+        self.initial_archive_file = None
+
     app_names = {"Files", "Mail"}
 
     def initialize_task_hook(self, controller: AndroidController) -> None:

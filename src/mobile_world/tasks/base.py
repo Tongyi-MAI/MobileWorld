@@ -29,12 +29,7 @@ class BaseTask(abc.ABC):
         self.initialized = False
         self._params = params
         self.apps_require_time_sync = ["Chrome", "Maps", "MCP-arXiv"]
-
-        # Determine the current date for tasks that require time sync.
-        if any(app in self.apps_require_time_sync for app in self.app_names):
-            self.current_date = datetime.now().date().strftime("%Y-%m-%d")
-        else:
-            self.current_date = "2025-10-16"
+        self.current_date = self._compute_current_date()
 
     @property
     def task_tags(self) -> set[str]:
@@ -102,8 +97,23 @@ class BaseTask(abc.ABC):
 
         return True
 
+    def _compute_current_date(self) -> str:
+        """The date the task presents as 'today'. Recomputed each episode so a
+        long-lived singleton instance doesn't freeze it at process-boot time."""
+        needs_time_sync = any(app in self.apps_require_time_sync for app in self.app_names)
+        return datetime.now().date().strftime("%Y-%m-%d") if needs_time_sync else "2025-10-16"
+
+    def reset_task_state(self) -> None:
+        """Clear per-episode mutable state. Override in tasks that accumulate it.
+
+        The registry reuses one singleton instance per task class, so this runs at
+        the start of every initialize_task() to stop state leaking across episodes.
+        """
+
     def initialize_task(self, controller: AndroidController) -> bool | None:
         """Initializes the task."""
+        self.reset_task_state()
+        self.current_date = self._compute_current_date()  # refresh per episode (singleton reuse)
         if self.initialized:
             logger.warning(f"{self.name} initialized before. Initializing again.")
 

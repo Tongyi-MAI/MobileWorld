@@ -104,6 +104,10 @@ class InvoiceReceiptCopyAskUserTask(BaseTask):
         self.current_month = datetime.datetime.now().month
         self.current_year = datetime.datetime.now().year
 
+    def reset_task_state(self) -> None:
+        self.invoice_files_created = []
+        self.other_files_created = []
+
     app_names = {
         "Files",
     }
