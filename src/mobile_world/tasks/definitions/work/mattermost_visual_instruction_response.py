@@ -1,7 +1,6 @@
 """Visual instruction response task - execute system actions based on image content in chat."""
 
 import time
-from urllib.parse import quote
 
 from mobile_world.runtime.app_helpers import mattermost
 from mobile_world.runtime.app_helpers.mattermost import DEFAULT_PASSWORD, USERS
@@ -33,6 +32,13 @@ class MattermostVisualInstructionResponseTask(BaseTask):
 
     CHANNEL_NAME = "emergency-response"
 
+    # Whiteboard images are pre-rendered (assets/visual_instruction/) and served by the
+    # mobile-world server; the device reaches them at 10.0.2.2:6800. This replaces the
+    # flaky placehold.co service, which also cropped the longest contact line.
+    ASSET_BASE_URL = "http://10.0.2.2:6800/task-asset/work/assets/visual_instruction"
+    CONTACTS_IMAGE = "emergency_contacts.png"
+    SHIFT_IMAGE = "shift_schedule.png"
+
     # Data to be embedded in images
     CONTACTS_DATA = [
         {"name": "Dr. Smith", "phone": "555-1010"},
@@ -48,14 +54,6 @@ class MattermostVisualInstructionResponseTask(BaseTask):
         super().__init__()
 
     app_names = {"Mattermost", "Contacts", "Clock"}
-
-    def _generate_image_url(self, title: str, lines: list[str]) -> str:
-        """Generate a placehold.co URL containing the text."""
-        # placehold.co supports simple text. We use newlines %0A.
-        full_text = f"{title}\n" + "\n".join(lines)
-        encoded_text = quote(full_text)
-        # Using a distinct color to make it look intentional
-        return f"https://placehold.co/600x400/EEE/31343C/png?text={encoded_text}"
 
     def initialize_task_hook(self, controller: AndroidController) -> bool:
         mattermost.start_mattermost_backend()
@@ -89,8 +87,7 @@ class MattermostVisualInstructionResponseTask(BaseTask):
         )
 
         # 2. Post Contacts Image
-        contact_lines = [f"{c['name']}: {c['phone']}" for c in self.CONTACTS_DATA]
-        contacts_url = self._generate_image_url("EMERGENCY CONTACTS", contact_lines)
+        contacts_url = f"{self.ASSET_BASE_URL}/{self.CONTACTS_IMAGE}"
 
         cli.send_message(
             team=mattermost.TEAM_NAME,
@@ -102,8 +99,7 @@ class MattermostVisualInstructionResponseTask(BaseTask):
         )
 
         # 3. Post Alarms Image
-        alarm_lines = [f"{a['label']}: {a['time_str']}" for a in self.ALARMS_DATA]
-        alarms_url = self._generate_image_url("SHIFT SCHEDULE", alarm_lines)
+        alarms_url = f"{self.ASSET_BASE_URL}/{self.SHIFT_IMAGE}"
 
         cli.send_message(
             team=mattermost.TEAM_NAME,

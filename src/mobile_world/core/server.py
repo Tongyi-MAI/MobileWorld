@@ -3,6 +3,7 @@
 
 import asyncio
 import base64
+import os
 import threading
 import time
 from pathlib import Path
@@ -246,6 +247,26 @@ def download(path: str = Query(..., description="absolute path of the file on th
     if not p.exists():
         raise HTTPException(status_code=404, detail="file not found")
     return FileResponse(str(p))
+
+
+# Static task assets (e.g. images embedded in chat). Tasks reference these from the
+# device as http://10.0.2.2:6800/task-asset/<path>, hosting them locally instead of
+# depending on flaky external image services.
+_TASK_DEFINITIONS_ROOT = (
+    Path(__file__).resolve().parent.parent / "tasks" / "definitions"
+).resolve()
+
+
+@app.get("/task-asset/{asset_path:path}")
+def get_task_asset(asset_path: str):
+    """Serve a file from a task's ``assets/`` directory under tasks/definitions."""
+    target = (_TASK_DEFINITIONS_ROOT / asset_path).resolve()
+    rel = os.path.relpath(target, _TASK_DEFINITIONS_ROOT)
+    if rel.startswith("..") or "assets" not in Path(rel).parts:
+        raise HTTPException(status_code=400, detail="invalid asset path")
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="asset not found")
+    return FileResponse(str(target))
 
 
 @app.get("/xml")

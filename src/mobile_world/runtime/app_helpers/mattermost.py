@@ -354,8 +354,8 @@ def connect_to_postgres():
         cursor = connection.cursor()
         logger.info("Connected to PostgreSQL database successfully!")
         return connection, cursor
-    except Error as e:
-        logger.error(f"Error connecting to PostgreSQL database: {e}")
+    except Error:
+        logger.warning("Error connecting to PostgreSQL database")
         return None, None
 
 
@@ -508,6 +508,10 @@ def _patch_mattermost_config():
         svc["ExtendSessionLengthWithActivity"] = True
         svc["SiteURL"] = "http://10.0.2.2:8065"
         svc["AllowCorsFrom"] = "*"
+        # Let MM fetch our locally-hosted task images (http://10.0.2.2:6800/task-asset/...)
+        # for inline-image metadata; the default empty allowlist makes its SSRF filter
+        # block the private 10.0.2.2 IP, so the app renders a spinner instead of the image.
+        svc["AllowedUntrustedInternalConnections"] = "10.0.2.2"
 
         with open(config_path, "w") as f:
             json.dump(config, f, indent=4)
