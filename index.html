@@ -708,9 +708,7 @@
                 const data = await response.json();
                 leaderboardData = data.results;
                 taskCounts = data.task_counts || taskCounts;
-                filteredData = [...leaderboardData];
-                updateTableHeader();
-                renderTable();
+                applyFilters();
             } catch (error) {
                 tbody.innerHTML = '<tr><td colspan="9" class="has-text-centered">Failed to load leaderboard data.</td></tr>';
                 console.error('Error loading leaderboard:', error);
