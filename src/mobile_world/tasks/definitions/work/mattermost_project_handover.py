@@ -43,7 +43,7 @@ class MattermostProjectHandoverTask(BaseTask):
         end_time = match.group(3).strip()
 
         # Check if it matches the expected values
-        expected_date = "2025-10-16"
+        expected_date = "2025-10-20"
         expected_start = "11:00"
         expected_end = "12:00"
 
