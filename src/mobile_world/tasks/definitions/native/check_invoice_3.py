@@ -13,11 +13,11 @@ class CheckInvoiceTask3(BaseTask):
 
     goal = (
         "Read the invoice PDF file in the download directory. "
-        "Send a SMS to Mia and report how many hours of the Consulting Services larger than Software Development hours."
+        "Send a SMS to Mia and report how many fewer hours does Consulting Services have than Software Development?"
     )
 
-    # The correct answer for validation - Consulting Services exceeds Software Development by 250 hours
-    CORRECT_ANSWER = 0
+    # Correct answer: Consulting Services (150h) has 250 fewer hours than Software Development (400h)
+    CORRECT_ANSWER = 250
     PDF_FILENAME = "invoice.pdf"
 
     # Mia's contact information (from check_candidate_ask_user_1.py)

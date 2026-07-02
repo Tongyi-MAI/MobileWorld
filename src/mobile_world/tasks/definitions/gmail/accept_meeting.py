@@ -60,8 +60,9 @@ class AcceptMeetingTask(BaseTask):
             return 0.0, "No email found"
         if not email["subject"] == "RE: Meeting Thursday":
             return 0.0, "Wrong subject"
-        if email["to"].lower() == self.correct_recipient.lower():
-            contents = email["body"]
-            if self.expected_body.lower() not in contents.lower():
-                return 0.0, "Wrong body"
+        if email["to"].lower() != self.correct_recipient.lower():
+            return 0.0, "Wrong recipient"
+        contents = email["body"]
+        if self.expected_body.lower() not in contents.lower():
+            return 0.0, "Wrong body"
         return 1.0, "Correct email sent"
