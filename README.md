@@ -43,6 +43,7 @@ While maintaining the same level of rigorous, reproducible evaluation as Android
 
 ## 📢 Updates
 - **2026-07-30: [**Qwen-UI-Agent**](https://tongyi-mai.github.io/Qwen-UI-Agent) Reports 82.1% on MobileWorld🚀**: the follow-up to [MAI-UI](https://github.com/Tongyi-MAI/MAI-UI), reports **82.1%** on MobileWorld.
+- **2026-07-29:** Added **Kimi-K3** (74.4% GUI-Only) and **GPT-5.6-Sol** (70.1% GUI-Only) to the [leaderboard](https://tongyi-mai.github.io/MobileWorld/#leaderboard), with full trajectories browsable in the [trajectory viewer](https://tongyi-mai.github.io/MobileWorld/#leaderboard) and [arena](https://tongyi-mai.github.io/MobileWorld/arena).
 - **2026-04-29: Head-to-Head Arena & Community Submissions🔥**
     * 🆚 **New Arena Comparison Page:** Compare any two models side-by-side at [tongyi-mai.github.io/MobileWorld/arena](https://tongyi-mai.github.io/MobileWorld/arena). Renders both trajectories step-by-step with screenshots and thinking traces, plus a confusion matrix to filter tasks by outcome (both pass / both fail / one wins / the other wins).
     * 📤 **Submit Your Results:** Community-contributed trajectories are now accepted via [`site/bundle_trajs.py`](site/bundle_trajs.py). See [docs/submit.md](docs/submit.md).
