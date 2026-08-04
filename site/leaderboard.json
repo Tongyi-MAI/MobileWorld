@@ -635,6 +635,23 @@
       "num_images_in_history": null,
       "notes": null,
       "traj_file": "trajs/magicgui_26062901.json.gz"
+    },
+    {
+      "model": "KnowAct-GUIClaw",
+      "organization": "Lychee",
+      "date": "2026-07-17",
+      "link": "https://github.com/HITsz-TMG/KnowAct",
+      "category": "Agentic",
+      "model_type": "Agentic Framework",
+      "max_steps": 50,
+      "runs": 1,
+      "gui_only": 64.1,
+      "user_int": null,
+      "mcp": null,
+      "agent_type": "guiclaw",
+      "num_images_in_history": 3,
+      "notes": "Agentic result built on Kimi-K2.6, using GUIClaw compact skills and GUI memory induced from prior MobileWorld trajectories. The directory consolidates task reruns performed after correcting the GUI memory bank; execution used a shared budget of up to 50 GUI decision steps across at most 5 GUI calls.",
+      "traj_file": "trajs/knowact-guiclaw.json.gz"
     }
   ]
 }
