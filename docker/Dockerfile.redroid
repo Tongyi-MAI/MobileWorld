@@ -1,0 +1,225 @@
+# MobileWorld V1-compatible redroid runtime image
+# (ghcr.io/tongyi-mai/mobile_world:v1-redroid)
+#
+# A dind container that runs redroid (containerized Android) + mattermost/mastodon
+# as inner sibling containers. No QEMU, no KVM. Build on a host whose kernel has
+# CONFIG_ANDROID_BINDERFS + binder_linux, with a buildx builder that allows the
+# security.insecure entitlement (needed to run the inner dockerd at build time to
+# bake images):
+#
+#   docker buildx create --name mw-builder --driver docker-container \
+#     --buildkitd-flags '--allow-insecure-entitlement security.insecure' --bootstrap
+#   docker buildx build --builder mw-builder --allow security.insecure \
+#     -f docker/Dockerfile.redroid \
+#     -t ghcr.io/tongyi-mai/mobile_world:v1-redroid --load .
+#
+# BUILD INPUTS NOT TRACKED IN THIS REPO
+# ------------------------------------
+# The build expects these paths to exist in the build context. They are release
+# artifacts (large binaries, device images, third-party APKs) that are shipped
+# inside the published image rather than committed here, so a clean clone cannot
+# build this Dockerfile until they are supplied:
+#
+#   docker/redroid/redroid-image.tgz        arm64 redroid image, `docker save`d
+#   docker/redroid/redroid-data-full.tar.zst  arm64-clean golden /data baseline
+#   docker/redroid/cpython-3.12.13-20260728-aarch64-gnu.tar.gz
+#                                             pinned uv-managed ARM64 CPython
+#   docker/redroid/DocumentsUIGoogle.apk    Google DocumentsUI (file manager)
+#   docker/redroid/ws-scrcpy-37a169d-arm64.tar.zst
+#                                             public NetrisTV/ws-scrcpy commit
+#                                             37a169d plus Node.js 16.20.2;
+#                                             SHA256 089a2a5506aef69b2a2b33faba4ae10ce1da60f215c427f5d650d4848c0c1caa
+#   docker/redroid_assets/                  local release bundle. The Dockerfile
+#                                           copies only the explicit ARM runtime
+#                                           allowlist: three helper APKs, the ARM
+#                                           time shim and vibrator HAL, two golden
+#                                           SMS fixtures, the time-shim C source,
+#                                           and three phone-viewer source files.
+#                                           Golden state and compiled binaries are
+#                                           intentionally not tracked in Git.
+#
+# Runtime reads the same assets from the image (/opt/redroid_assets) or from the
+# host (/root/redroid_assets); all paths are env-overridable.
+
+# Pin the public base so a later `latest` update cannot silently alter a release.
+# Override it with an equivalent VM-local registry mirror when needed.
+ARG DIND_BASE_IMAGE=cruizba/ubuntu-dind:latest@sha256:bb1f5d8f605a5b117f09c9aee1abe2706b118e1c2260ee3a81b718c717e63934
+
+# ---------- final image ----------
+# cruizba/ubuntu-dind declares VOLUME /var/lib/docker. That makes the outer
+# daemon copy the multi-gigabyte baked inner store into an anonymous volume at
+# every container create, and Docker's copy-up walker cannot traverse
+# fuse-overlayfs' layer metadata safely. Re-root the base filesystem through a
+# scratch stage to retain the exact binaries while dropping inherited image
+# configuration, especially that VOLUME declaration.
+FROM ${DIND_BASE_IMAGE} AS dind-source
+FROM scratch AS dind-base
+COPY --from=dind-source / /
+
+FROM dind-base
+
+ARG TARGETARCH
+RUN test "$TARGETARCH" = "arm64" || { \
+        echo "Dockerfile.redroid release inputs are ARM64; build with --platform linux/arm64" >&2; \
+        exit 1; \
+    }
+
+# Docker 29's containerd snapshotter cannot materialize OCI whiteouts while
+# dockerd itself is nested in BuildKit/Colima, and the classic vfs fallback
+# duplicates every layer. Use fuse-overlayfs for both the build-time bake and
+# the runtime inner daemon so the baked store remains compact and compatible.
+COPY docker/daemon.redroid.json /etc/docker/daemon.json
+
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    DOCKER_CHANNEL=stable \
+    DOCKER_VERSION=29.7.1 \
+    DOCKER_COMPOSE_VERSION=v5.3.1 \
+    BUILDX_VERSION=v0.36.0 \
+    DEBUG=false \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Runtime deps: keep adb/scrcpy/ffmpeg/socat + node (phone-page); drop the QEMU
+# emulator + novnc desktop stack from the v1 image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        bash vim wget curl unzip ca-certificates gcc adb fuse-overlayfs \
+        scrcpy ffmpeg socat python3 python3-pip \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && update-ca-certificates && ln -sf python3 /usr/bin/python \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --break-system-packages --no-cache --upgrade setuptools uv
+
+# Ubuntu's adb package is architecture-native. Google's Linux platform-tools ZIP
+# is amd64-only, which silently turns an otherwise native arm64 image back into an
+# emulated one on Apple Silicon. Preserve the benchmark's reusable ADB identity
+# for compatibility with the original emulator workflow.
+COPY docker/adbkey docker/adbkey.pub /root/.android/
+
+# ---------- python service ----------
+COPY pyproject.toml uv.lock /app/service/
+COPY src /app/service/src
+COPY README.md /app/service/README.md
+# Colima DNS can be unreliable for uv's managed-Python CDN. Seed the exact
+# upstream ARM64 build selected by uv.lock so dependency sync is deterministic.
+COPY docker/redroid/cpython-3.12.13-20260728-aarch64-gnu.tar.gz /tmp/cpython-arm64.tar.gz
+RUN mkdir -p /root/.local/share/uv/python/cpython-3.12.13-linux-aarch64-gnu && \
+    tar -xzf /tmp/cpython-arm64.tar.gz \
+        -C /root/.local/share/uv/python/cpython-3.12.13-linux-aarch64-gnu \
+        --strip-components=1 && \
+    rm /tmp/cpython-arm64.tar.gz
+# Optional PyPI mirror for restricted networks:
+#   docker buildx build --build-arg UV_INDEX_URL=https://mirror.example/simple ...
+ARG UV_INDEX_URL=
+RUN cd /app/service && \
+    export UV_CONCURRENT_BUILDS=1 UV_CONCURRENT_DOWNLOADS=2; \
+    if [ -n "$UV_INDEX_URL" ]; then export UV_DEFAULT_INDEX="$UV_INDEX_URL"; fi && \
+    uv sync --no-cache
+
+# ---------- bake all inner-docker images at build time (no docker load at startup)
+# Backend image tars (docker save) + the redroid image tar are loaded into the inner
+# docker store; the populated /var/lib/docker (a VOLUME in the base) copy-up-seeds the
+# runtime volume, so they are present with zero startup IO. The tars are BIND-MOUNTED
+# (not COPYd) so they're available to this RUN but never written to an image layer —
+# saving ~2.2GB of otherwise-redundant tars that the bake immediately consumes.
+RUN --security=insecure \
+    --mount=type=bind,source=docker/images,target=/build/images \
+    --mount=type=bind,source=docker/redroid/redroid-image.tgz,target=/build/redroid-image.tgz \
+    bash -c '\
+    set -euo pipefail; \
+    dockerd >/var/log/build-dockerd.log 2>&1 & \
+    for i in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 1; done; \
+    docker info >/dev/null 2>&1 || { echo "build dockerd failed"; tail -30 /var/log/build-dockerd.log; exit 1; }; \
+    driver=$(docker info --format "{{.Driver}}"); \
+    echo "build inner storage driver=$driver"; \
+    test "$driver" = fuse-overlayfs || { tail -30 /var/log/build-dockerd.log; exit 1; }; \
+    grep -q "containerd-snapshotter=false" /var/log/build-dockerd.log || { tail -30 /var/log/build-dockerd.log; exit 1; }; \
+    for f in /build/images/*.tar; do if [ -f "$f" ]; then echo "loading $f"; docker load -i "$f"; fi; done; \
+    if [ -f /build/redroid-image.tgz ]; then echo "loading redroid"; docker load -i /build/redroid-image.tgz; fi; \
+    docker create --name redroid-bake-verify redroid/redroid:14.0.0_64only_mindthegapps >/dev/null; \
+    docker rm redroid-bake-verify >/dev/null; \
+    docker images; \
+    pkill -TERM dockerd 2>/dev/null || true; sleep 6'
+
+# ---------- redroid assets: explicit ARM runtime allowlist ----------------------
+COPY docker/redroid/redroid-data-full.tar.zst /opt/redroid-data.tar.zst
+COPY docker/redroid_assets/fossify-patched.apk \
+     docker/redroid_assets/mockcamera.apk \
+     docker/redroid_assets/smsnotifier.apk /opt/redroid_assets/
+COPY docker/redroid_assets/timeshift-src/libtimeshift.c \
+     /opt/redroid_assets/timeshift-src/libtimeshift.c
+COPY docker/redroid_assets/timeshift/libtimeshift-arm64.so \
+     /opt/redroid_assets/timeshift/libtimeshift-arm64.so
+COPY docker/redroid_assets/vibrator/android.hardware.vibrator-service.example-arm64 \
+     /opt/redroid_assets/vibrator/android.hardware.vibrator-service.example-arm64
+COPY docker/redroid_assets/golden/provider_sms_golden.sql \
+     docker/redroid_assets/golden/conversations_golden.db \
+     /opt/redroid_assets/golden/
+# setup scripts (vibrator/camera/sms/documentsui), recreate, binderfs helper source
+COPY docker/redroid/setup_vibrator.sh docker/redroid/setup_camera.sh docker/redroid/setup_sms.sh \
+     docker/redroid/setup_timeshift.sh docker/redroid/setup_documentsui.sh docker/redroid/setup_notifier.sh \
+     docker/redroid/recreate_redroid.sh docker/redroid/binderfs_add.c /opt/redroid/
+# Google DocumentsUI APK (full file manager) — swapped in for AOSP at startup
+COPY docker/redroid/DocumentsUIGoogle.apk /opt/redroid/DocumentsUIGoogle.apk
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential linux-libc-dev iproute2 zstd rsync \
+    && gcc -O2 -o /usr/local/sbin/binderfs_add /opt/redroid/binderfs_add.c \
+    && mkdir -p /usr/local/lib \
+    && gcc -shared -fPIC -O2 -o /usr/local/lib/libtimeshift.so /opt/redroid_assets/timeshift-src/libtimeshift.c -ldl \
+    && chmod +x /opt/redroid/*.sh \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# ---------- phone-page viewer ----------
+# This pinned, prebuilt public artifact avoids a network clone/npm install during
+# the release build. It also carries Node 16 because ws-scrcpy's native node-pty
+# is incompatible with the image's default Node 18.
+COPY docker/redroid/ws-scrcpy-37a169d-arm64.tar.zst /tmp/ws-scrcpy.tar.zst
+RUN echo "089a2a5506aef69b2a2b33faba4ae10ce1da60f215c427f5d650d4848c0c1caa  /tmp/ws-scrcpy.tar.zst" | sha256sum -c - && \
+    tar --zstd -xf /tmp/ws-scrcpy.tar.zst -C / && \
+    rm /tmp/ws-scrcpy.tar.zst
+COPY docker/redroid_assets/phone-page-src/index.html /opt/ws-scrcpy/dist/public/index.html
+COPY docker/redroid_assets/phone-page-src/redroid-phone-proxy.js /opt/redroid-phone-proxy/redroid-phone-proxy.js
+COPY docker/redroid_assets/phone-page-src/start-scrcpy-server.sh /app/docker/phone-page/start-scrcpy-server.sh
+RUN chmod +x /app/docker/phone-page/start-scrcpy-server.sh
+
+# ---------- mattermost / mastodon golden seed dirs (paired with golden /data) ---
+COPY docker/mattermost-docker-bk /app/mattermost-docker-bk
+COPY docker/mastodon-docker-bk /app/mastodon-docker-bk
+RUN mkdir -p /app/mattermost-docker-bk/volumes/app/mattermost/logs; \
+    chown -R 2000:2000 /app/mattermost-docker-bk/volumes/app/mattermost 2>/dev/null || true; \
+    chown -R 991:991 /app/mastodon-docker-bk 2>/dev/null || true
+
+# ---------- env contract (activates the redroid code paths) ---------------------
+ENV MOBILE_WORLD_BACKEND=redroid \
+    ANDROID_DEVICE=emulator-5554 \
+    REDROID_IMAGE=redroid/redroid:14.0.0_64only_mindthegapps \
+    REDROID_CONTAINER=redroid14-sandbox \
+    REDROID_DATA_VOLUME=redroid14-gms-data \
+    REDROID_DATA_BASELINE=/opt/redroid-data.tar.zst \
+    REDROID_DATA_GOLDEN_DIR=/opt/redroid-data-golden \
+    REDROID_BOOT_TIMEOUT=180 \
+    REDROID_DNS1=8.8.8.8 \
+    REDROID_DNS2=8.8.4.4 \
+    REDROID_SET_HOST_CLOCK=0 \
+    REDROID_TIMESHIFT=1 \
+    REDROID_TARGET_DATETIME="2025-10-16 12:00:00 UTC" \
+    TIMESHIFT_GLIBC_SO=/usr/local/lib/libtimeshift.so \
+    REDROID_GOLDEN_SMS_SQL=/opt/redroid_assets/golden/provider_sms_golden.sql \
+    REDROID_GOLDEN_FOSSIFY_DB=/opt/redroid_assets/golden/conversations_golden.db \
+    REDROID_SCRCPY_START_SCRIPT=/app/docker/phone-page/start-scrcpy-server.sh \
+    MATTERMOST_DOCKER_DIR=/app/mattermost-docker \
+    MATTERMOST_STATUS_DIR=/app/mattermost-docker-bk \
+    MASTODON_DOCKER_DIR=/app/mastodon-docker \
+    MASTODON_STATUS_DIR=/app/mastodon-docker-bk \
+    MASTODON_MEDIA_ROOT=/app/mastodon-docker/data/media
+
+WORKDIR /app/service
+COPY docker/entrypoint.redroid.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh && \
+    rm -f /root/.wget-hsts /var/log/build-dockerd.log
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
+    CMD curl -f http://localhost:6800/health || exit 1
+
+ENTRYPOINT ["entrypoint.sh"]
+CMD ["sh", "-c", "tail -f /var/log/server.log /var/log/redroid.log /var/log/dockerd.err.log 2>/dev/null"]

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <!-- Mock viewfinder: a normal RGBA ImageView showing the mock scene. redroid composites
+         and screencaps standard view content fine (the GL/video texture path is black). -->
+    <ImageView
+        android:id="@+id/viewfinderImage"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/viewfinder_scene"
+        android:contentDescription="Viewfinder" />
+
+    <!-- Animated "live" overlay: drawn in the normal view system so it composites. -->
+    <com.mobileworld.mockcamera.LiveOverlayView
+        android:id="@+id/liveOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <TextView
+        android:id="@+id/modeLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="36dp"
+        android:text="PHOTO"
+        android:textColor="#FFFFD740"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.2" />
+
+    <View
+        android:id="@+id/flash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/white"
+        android:alpha="0"
+        android:visibility="gone" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:layout_gravity="bottom"
+        android:background="#66000000">
+
+        <ImageView
+            android:id="@+id/thumbnail"
+            android:layout_width="54dp"
+            android:layout_height="54dp"
+            android:layout_gravity="center_vertical|start"
+            android:layout_marginStart="28dp"
+            android:scaleType="centerCrop"
+            android:background="@drawable/thumb_frame"
+            android:contentDescription="Last photo" />
+
+        <ImageButton
+            android:id="@+id/shutter"
+            android:layout_width="78dp"
+            android:layout_height="78dp"
+            android:layout_gravity="center"
+            android:background="@drawable/shutter_button"
+            android:scaleType="centerInside"
+            android:contentDescription="Shutter" />
+
+        <ImageButton
+            android:id="@+id/flipCamera"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:layout_gravity="center_vertical|end"
+            android:layout_marginEnd="28dp"
+            android:background="@drawable/circle_dark"
+            android:src="@android:drawable/ic_menu_camera"
+            android:tint="#FFFFFFFF"
+            android:contentDescription="Switch camera" />
+    </FrameLayout>
+
+</FrameLayout>

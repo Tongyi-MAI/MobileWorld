@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="shutter_ring">#FFFFFFFF</color>
+    <color name="ic_launcher_background">#FF1A1A1A</color>
+</resources>

@@ -1,0 +1,88 @@
+name: mastodon-docker
+
+services:
+  db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mastodon
+      POSTGRES_USER: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d mastodon" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: [ "redis-server", "--appendonly", "yes", "--dir", "/data" ]
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    working_dir: /opt/mastodon
+    image: ghcr.io/mastodon/mastodon:v4.3.7
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: .env.dev
+    command: [ "bash", "-lc", "RAILS_ENV=production bundle exec rails db:prepare && bundle exec puma -C config/puma.rb" ]
+    volumes:
+      - ./data/media:/opt/mastodon/public/system
+    ports:
+      - 3000:3000
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  streaming:
+    image: ghcr.io/mastodon/mastodon-streaming:v4.3.7
+    working_dir: /opt/mastodon
+    command: [ "node", "./streaming" ]
+    depends_on:
+      web:
+        condition: service_started
+    env_file: .env.dev
+    expose:
+      - "4000"
+
+  sidekiq:
+    image: ghcr.io/mastodon/mastodon:v4.3.7
+    depends_on:
+      web:
+        condition: service_started
+    env_file: .env.dev
+    command: [ "bash", "-lc", "RAILS_ENV=production bundle exec rails db:prepare && bundle exec sidekiq" ]
+    volumes:
+      - ./data/media:/opt/mastodon/public/system
+
+  nginx:
+    image: nginx:1.25-alpine
+    depends_on:
+      web:
+        condition: service_started
+      streaming:
+        condition: service_started
+    ports:
+      - "443:443"
+      - "8443:8443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./reverse-proxy/certs:/etc/nginx/certs:ro
+
+networks:
+  default:
+    name: mastodon-net

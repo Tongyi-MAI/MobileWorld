@@ -1,0 +1,13 @@
+{
+  "storage-driver": "fuse-overlayfs",
+  "bip": "172.27.0.1/16",
+  "default-address-pools": [
+    {
+      "base": "172.28.0.0/14",
+      "size": 24
+    }
+  ],
+  "features": {
+    "containerd-snapshotter": false
+  }
+}

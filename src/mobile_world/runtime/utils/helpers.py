@@ -181,15 +181,15 @@ def execute_adb(adb_command: str, output: bool = True, root_required=False) -> A
     )
 
 
-def execute_root_sql(db_path: str, sql_query: str) -> str:
+def execute_root_sql(db_path: str, sql_query: str, device: str | None = None) -> str:
     """
     Execute a SQL query that requires root access.
     """
-
+    device = device or os.environ.get("ANDROID_DEVICE", "emulator-5554")
     adb_commands = [
-        f"adb shell \"su 0 sqlite3 {db_path} '{sql_query}'\"",
-        f"adb shell \"su root sqlite3 {db_path} '{sql_query}'\"",
-        f'adb shell su 0 sqlite3 {db_path} "{sql_query}"',
+        f"adb -s {device} shell \"su 0 sqlite3 {db_path} '{sql_query}'\"",
+        f"adb -s {device} shell \"su root sqlite3 {db_path} '{sql_query}'\"",
+        f'adb -s {device} shell su 0 sqlite3 {db_path} "{sql_query}"',
     ]
 
     for adb_command in adb_commands:

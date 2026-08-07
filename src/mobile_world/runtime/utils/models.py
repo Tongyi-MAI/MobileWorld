@@ -245,7 +245,18 @@ APP_DICT = {
     "Mastodon": "org.joinmastodon.android.mastodon",
     "Mail": "com.gmailclone",
     "SMS": "com.google.android.apps.messaging",
+    "Messages": "com.google.android.apps.messaging",
     "Camera": "com.android.camera2",
+}
+
+# Overrides applied when the target is a redroid container (no Google apps; AOSP /
+# Fossify substitutes). Consumed by AndroidController.launch_app and the reset_*
+# helpers via is_redroid(device). The emulator APP_DICT above is left unchanged.
+APP_DICT_REDROID_OVERRIDES = {
+    "Chrome": "org.mozilla.firefox",  # no com.android.chrome; Firefox is the browser substitute
+    "SMS": "org.fossify.messages",
+    "Messages": "org.fossify.messages",
+    "Camera": "com.mobileworld.mockcamera",
 }
 
 COMMON_APP_MAPPER = {

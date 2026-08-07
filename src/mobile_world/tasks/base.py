@@ -18,6 +18,7 @@ from mobile_world.runtime.app_helpers.system import (
     time_sync_to_now,
 )
 from mobile_world.runtime.controller import AndroidController
+from mobile_world.runtime.utils.device import is_redroid
 
 
 class BaseTask(abc.ABC):
@@ -80,6 +81,11 @@ class BaseTask(abc.ABC):
 
         controller.user_sys_prompt = user_sys_prompt
 
+        # Tasks not built around user interaction can still trigger ask_user; if the
+        # user-agent LLM is down, degrade to a default answer instead of failing the
+        # whole trajectory. Interaction tasks keep strict behavior (need the real answer).
+        controller.allow_user_agent_fallback = "agent-user-interaction" not in self.task_tags
+
         if not hasattr(self, "model_config") or self.model_config is None:
             from mobile_world.tasks.utils import ModelConfig
 
@@ -128,12 +134,23 @@ class BaseTask(abc.ABC):
             controller.home()
             time.sleep(2)
 
-        # some apps require time sync, e.g. Chrome, Maps, MCP-Amap
-        if any(app in self.apps_require_time_sync for app in self.app_names):
+        needs_time_sync = any(app in self.apps_require_time_sync for app in self.app_names)
+        if needs_time_sync:
             logger.info(f"Syncing time for {self.name}")
             if not time_sync_to_now():
                 logger.error(f"Failed to sync time for {self.name}")
                 return False
+
+        if is_redroid(controller.device):
+            from mobile_world.runtime.utils import redroid_device
+
+            redroid_device.set_task_timeframe(
+                controller.device, self.current_date, realtime=needs_time_sync
+            )
+            # the reboot/zygote restart above tear down the MediaProvider /sdcard FUSE
+            # mount; wait for it before any seed push, else adb push hits device-offline/IO error
+            if not redroid_device.wait_for_sdcard_ready(controller.device):
+                logger.warning(f"[redroid] /sdcard not ready before init of {self.name}; continuing")
 
         ### app specific initialization, run before initialize_task_hook ###
         ### in case some tasks forget to implement proper tear_down() ###
@@ -150,6 +167,14 @@ class BaseTask(abc.ABC):
             return False
 
         self.initialize_user_agent_hook(controller)
+
+        # redroid: the guest app is offline across the /data reset and misses the realtime
+        # events for the backend changes init just made — re-sync it so the agent sees
+        # runtime-created Mattermost channels instead of the stale golden sidebar.
+        if is_redroid(controller.device) and "Mattermost" in self.app_names:
+            from mobile_world.runtime.utils import redroid_device
+
+            redroid_device.sync_mattermost_app(controller.device)
 
         if self.start_on_home_screen:
             controller.home()
@@ -200,6 +225,7 @@ class BaseTask(abc.ABC):
         controller.user_sys_prompt = None
         controller.model_config = None
         controller.user_agent_chat_history = []
+        controller.allow_user_agent_fallback = False
         self.initialized = False
         logger.info(f"Tearing down {self.name}")
 

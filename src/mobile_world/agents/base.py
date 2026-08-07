@@ -23,6 +23,7 @@ class BaseAgent(ABC):
         self._total_completion_tokens: int = 0
         self._total_prompt_tokens: int = 0
         self._total_cached_tokens: int = 0
+        self.extra_body: dict[str, Any] = dict(kwargs.get("extra_body") or {})
 
     def initialize(self, instruction: str) -> bool:
         """Initialize the agent with the given instruction."""
@@ -102,8 +103,18 @@ class BaseAgent(ABC):
                     if "max_tokens" in kwargs:
                         kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
 
-                if "kimi-k" in model.lower():
-                    kwargs["extra_body"] = {"enable_thinking": True}
+                is_kimi = "kimi-k" in model.lower()
+                if is_kimi:
+                    # Kimi K3 only accepts its service-defined sampling value;
+                    # omitting temperature lets the endpoint apply that default.
+                    kwargs.pop("temperature", None)
+
+                request_extra_body = dict(self.extra_body)
+                request_extra_body.update(kwargs.get("extra_body") or {})
+                if is_kimi:
+                    request_extra_body["enable_thinking"] = True
+                if request_extra_body:
+                    kwargs["extra_body"] = request_extra_body
 
                 response = self.openai_client.chat.completions.create(
                     model=model,

@@ -100,6 +100,31 @@ def find_available_ports(
     return port_sets
 
 
+def get_image_runtime_volumes(image: str) -> list[tuple[str, str]]:
+    """Return host runtime mounts required by an already-local environment image.
+
+    Redroid needs binder devices created by the Docker host's binderfs instance.
+    Mounting a fresh binderfs from inside a nested container can create device
+    nodes that exist but fail open(2) with ENXIO (notably under Colima), so pass
+    the host instance through to the outer dind container.
+    """
+    result = subprocess.run(
+        ["docker", "image", "inspect", image, "--format", "{{json .Config.Env}}"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return []
+    try:
+        image_env = json.loads(result.stdout or "[]") or []
+    except json.JSONDecodeError:
+        return []
+    if "MOBILE_WORLD_BACKEND=redroid" in image_env:
+        return [("/dev/binderfs", "/dev/binderfs")]
+    return []
+
+
 def find_next_container_index(prefix: str = DEFAULT_NAME_PREFIX, dev_mode: bool = False) -> int:
     """Find the next available container index for the given prefix.
 
@@ -253,7 +278,7 @@ def launch_container(
         envs["HTTP_PROXY"] = config.http_proxy
         envs["HTTPS_PROXY"] = config.http_proxy
 
-    volumes: list[tuple[str, str]] = []
+    volumes = get_image_runtime_volumes(config.image)
     if config.dev_src_path:
         volumes.append((str(config.dev_src_path), "/app/service/src"))
     if config.env_file_path:
@@ -847,13 +872,17 @@ def check_prerequisites() -> PrerequisiteCheckResults:
     Returns:
         PrerequisiteCheckResults with all check results
     """
+    from mobile_world.runtime.utils.device import is_redroid
+
     checks = [
         check_docker_installed(),
         check_docker_running(),
         check_docker_permission(),
-        check_kvm_available(),
         check_iptables_nat(),
     ]
+    # redroid (containerized Android) needs no KVM; only the QEMU emulator does.
+    if not is_redroid():
+        checks.insert(3, check_kvm_available())
     return PrerequisiteCheckResults(checks=checks)
 
 

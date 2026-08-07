@@ -18,6 +18,16 @@ from mobile_world.runtime.client import scan_finished_tasks
 from ..runner import run_agent_with_evaluation
 
 
+def _parse_json_object(value: str) -> dict:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise argparse.ArgumentTypeError(f"invalid JSON object: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise argparse.ArgumentTypeError("value must be a JSON object")
+    return parsed
+
+
 def generate_pass_k_report(
     log_file_root: str,
     k: int,
@@ -68,8 +78,7 @@ def generate_pass_k_report(
         }
 
     per_run_success_rates = [
-        count / total_tasks if total_tasks > 0 else 0.0
-        for count in per_run_success_counts
+        count / total_tasks if total_tasks > 0 else 0.0 for count in per_run_success_counts
     ]
 
     return {
@@ -99,26 +108,26 @@ def _print_pass_k_report(report: dict, report_file: Path) -> None:
 
     summary_text = Text()
     summary_text.append(f"Pass@{k} Evaluation Complete!\n\n", style="bold green")
-    summary_text.append(
-        f"Pass@{k} Rate: {summary['pass_at_k_rate']:.1%}\n", style="cyan"
-    )
+    summary_text.append(f"Pass@{k} Rate: {summary['pass_at_k_rate']:.1%}\n", style="cyan")
     summary_text.append(
         f"Tasks Passed: {summary['tasks_passed_at_k']}/{summary['total_tasks']}\n",
         style="magenta",
     )
-    per_run_strs = [f"Run {i+1}: {r:.1%}" for i, r in enumerate(summary["per_run_success_rates"])]
+    per_run_strs = [f"Run {i + 1}: {r:.1%}" for i, r in enumerate(summary["per_run_success_rates"])]
     summary_text.append(f"Per-Run Success Rates: {', '.join(per_run_strs)}\n", style="yellow")
     summary_text.append(
         f"Total Duration: {summary['total_duration_seconds']:.1f} seconds\n",
         style="yellow",
     )
 
-    console.print(Panel(
-        summary_text,
-        title=f"[bold blue]Pass@{k} Evaluation Summary",
-        border_style="blue",
-        padding=(1, 2),
-    ))
+    console.print(
+        Panel(
+            summary_text,
+            title=f"[bold blue]Pass@{k} Evaluation Summary",
+            border_style="blue",
+            padding=(1, 2),
+        )
+    )
 
     metadata = report["metadata"]
     metadata_text = Text()
@@ -127,9 +136,9 @@ def _print_pass_k_report(report: dict, report_file: Path) -> None:
     metadata_text.append(f"Timestamp: {metadata['timestamp']}\n", style="green")
     metadata_text.append(f"Log Root: {metadata['log_file_root']}\n", style="green")
 
-    console.print(Panel(
-        metadata_text, title="[bold]Configuration", border_style="green", padding=(1, 2)
-    ))
+    console.print(
+        Panel(metadata_text, title="[bold]Configuration", border_style="green", padding=(1, 2))
+    )
 
     tasks = report["tasks"]
     if tasks:
@@ -142,7 +151,7 @@ def _print_pass_k_report(report: dict, report_file: Path) -> None:
         results_table.add_column(f"Pass@{k}", justify="center")
         results_table.add_column("Passed Runs", justify="center")
         for i in range(k):
-            results_table.add_column(f"Run {i+1}", justify="center")
+            results_table.add_column(f"Run {i + 1}", justify="center")
 
         for task_name, task_data in tasks.items():
             pass_str = "[green]Yes[/green]" if task_data["pass_at_k"] else "[red]No[/red]"
@@ -161,9 +170,9 @@ def _print_pass_k_report(report: dict, report_file: Path) -> None:
     files_text.append(f"Results JSON: {report_file}\n", style="blue")
     files_text.append(f"Trajectory Logs: {metadata['log_file_root']}", style="blue")
 
-    console.print(Panel(
-        files_text, title="[bold]Output Files", border_style="cyan", padding=(1, 2)
-    ))
+    console.print(
+        Panel(files_text, title="[bold]Output Files", border_style="cyan", padding=(1, 2))
+    )
 
 
 def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -187,6 +196,14 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "--api_key",
         dest="api_key",
         help="API key for LLM service",
+    )
+    parser.add_argument(
+        "--extra-body",
+        "--extra_body",
+        dest="extra_body",
+        type=_parse_json_object,
+        default=None,
+        help="Extra JSON object merged into OpenAI-compatible request bodies",
     )
     parser.add_argument(
         "--log-file-root",
@@ -362,7 +379,9 @@ async def _execute_pass_k(
 
     for i in range(1, pass_k + 1):
         run_log_root = os.path.join(log_file_root, f"run_{i}")
-        logger.info("=== Starting pass@{} run {}/{} (log_root: {}) ===", pass_k, i, pass_k, run_log_root)
+        logger.info(
+            "=== Starting pass@{} run {}/{} (log_root: {}) ===", pass_k, i, pass_k, run_log_root
+        )
 
         run_agent_with_evaluation(
             agent_type=args.agent_type,
@@ -388,6 +407,7 @@ async def _execute_pass_k(
             shuffle_tasks=args.shuffle_tasks,
             scale_factor=getattr(args, "scale_factor", 1000),
             auto_retry=args.auto_retry,
+            extra_body=args.extra_body,
         )
 
         logger.info("=== Completed pass@{} run {}/{} ===", pass_k, i, pass_k)
@@ -463,6 +483,7 @@ async def execute(args: argparse.Namespace) -> None:
         shuffle_tasks=args.shuffle_tasks,
         scale_factor=getattr(args, "scale_factor", 1000),
         auto_retry=args.auto_retry,
+        extra_body=args.extra_body,
     )
     if run_all_tasks and task_results:
         total_duration = time.time() - start_time

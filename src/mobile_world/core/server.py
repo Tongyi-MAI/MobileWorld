@@ -18,6 +18,7 @@ from loguru import logger
 from mobile_world.runtime.app_helpers.mall import get_config, write_callback_file
 from mobile_world.runtime.controller import AndroidController
 from mobile_world.runtime.utils.constants import ARTIFACTS_ROOT, device_dir
+from mobile_world.runtime.utils.device import is_redroid
 from mobile_world.runtime.utils.docker import restart_emulator_with_avd
 from mobile_world.runtime.utils.helpers import AdbResponse
 from mobile_world.runtime.utils.models import (
@@ -131,7 +132,7 @@ def health():
                 _last_restart_attempt = current_time
                 should_restart = True
 
-        if should_restart:
+        if should_restart and not is_redroid():
             try:
                 logger.warning(
                     f"[HEALTH] Unhealthy devices detected: {unhealthy_devices}. "
@@ -150,6 +151,11 @@ def health():
                     f"[HEALTH] Failed to restart emulator for suite family {SUITE_FAMILY}: {e}",
                     exc_info=True,
                 )
+        elif should_restart and is_redroid():
+            logger.warning(
+                f"[HEALTH] Unhealthy devices {unhealthy_devices}; redroid backend — skipping "
+                "QEMU emulator restart (per-task golden /data restore handles recovery)"
+            )
         else:
             time_since_last = current_time - _last_restart_attempt
             logger.debug(

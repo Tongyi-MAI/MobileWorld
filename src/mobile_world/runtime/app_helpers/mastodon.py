@@ -19,20 +19,25 @@ from psycopg2 import Error
 from mobile_world.runtime.controller import AndroidController
 from mobile_world.runtime.utils.helpers import execute_adb
 
-MASTODON_DOCKER_DIR = "/app/mastodon-docker"  # for docker-in-docker development
+# All host-FS / connection constants are env-overridable so the same code drives the
+# dind/emulator image (no env set -> original /app/* defaults) and a redroid host, where
+# env points at a host-side sibling-container layout.
+MASTODON_DOCKER_DIR = os.getenv("MASTODON_DOCKER_DIR", "/app/mastodon-docker")
 COMPOSE_FILE = "docker-compose.yml"
-MASTODON_DB_HOST = "localhost"  # database host address
-MASTODON_DB_DATABASE = "mastodon"  # database name
-MASTODON_DB_USER = "postgres"  # database user
-MASTODON_DB_PASSWORD = "postgres"  # database password
-MASTODON_DB_PORT = "5432"  # database port
-MASTODON_LOCAL_DOMAIN = "10.0.2.2"  # local domain name (used by Android/emulator to访问实例)
-MASTODON_STATUS_DIR = "/app/mastodon-docker-bk"
+MASTODON_DB_HOST = os.getenv("MASTODON_DB_HOST", "localhost")  # database host address
+MASTODON_DB_DATABASE = os.getenv("MASTODON_DB_DATABASE", "mastodon")  # database name
+MASTODON_DB_USER = os.getenv("MASTODON_DB_USER", "postgres")  # database user
+MASTODON_DB_PASSWORD = os.getenv("MASTODON_DB_PASSWORD", "postgres")  # database password
+MASTODON_DB_PORT = os.getenv("MASTODON_DB_PORT", "5432")  # database port
+MASTODON_LOCAL_DOMAIN = os.getenv("MASTODON_LOCAL_DOMAIN", "10.0.2.2")  # local domain (Android -> instance)
+MASTODON_STATUS_DIR = os.getenv("MASTODON_STATUS_DIR", "/app/mastodon-docker-bk")
 
-MASTODON_HEALTH_URL = "https://localhost/api/v1/instance"  # need host header 10.0.2.2
+# Host header stays 10.0.2.2; the URL host/port is overridable in case the host
+# publishes the mastodon nginx TLS port somewhere other than 443.
+MASTODON_HEALTH_URL = os.getenv("MASTODON_HEALTH_URL", "https://localhost/api/v1/instance")
 
 PUBLIC_SYSTEM_ROOT = "/opt/mastodon/public/system"  # media directory inside the container
-MEDIA_ROOT = "/app/mastodon-docker/data/media"  # for docker-in-docker development
+MEDIA_ROOT = os.getenv("MASTODON_MEDIA_ROOT", "/app/mastodon-docker/data/media")
 
 
 def copytree_with_ownership(src, dst):

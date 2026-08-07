@@ -1,0 +1,18 @@
+FROM ghcr.io/tongyi-mai/mobile_world:v1-redroid-arm64-base
+
+# Fast iteration layer for the MobileWorld V1-compatible ARM redroid runtime,
+# after the expensive nested image store and golden Android data are assembled.
+COPY docker/entrypoint.redroid.sh /usr/local/bin/entrypoint.sh
+COPY docker/redroid/recreate_redroid.sh /opt/redroid/recreate_redroid.sh
+RUN chmod 0755 /usr/local/bin/entrypoint.sh /opt/redroid/recreate_redroid.sh && \
+    rm -f /root/.wget-hsts /var/log/build-dockerd.log && \
+    rm -rf /app/mattermost-docker-bk/volumes/app/mattermost/logs && \
+    mkdir -p /app/mattermost-docker-bk/volumes/app/mattermost/logs && \
+    chown 2000:2000 /app/mattermost-docker-bk/volumes/app/mattermost/logs
+COPY docker/daemon.redroid.json /etc/docker/daemon.json
+COPY src/mobile_world/core/api/env.py /app/service/src/mobile_world/core/api/env.py
+COPY src/mobile_world/core/subcommands/env.py /app/service/src/mobile_world/core/subcommands/env.py
+COPY src/mobile_world/runtime/utils/redroid_device.py /app/service/src/mobile_world/runtime/utils/redroid_device.py
+COPY src/mobile_world/runtime/app_helpers/mattermost.py /app/service/src/mobile_world/runtime/app_helpers/mattermost.py
+COPY src/mobile_world/agents/base.py /app/service/src/mobile_world/agents/base.py
+COPY src/mobile_world/core/subcommands/eval.py /app/service/src/mobile_world/core/subcommands/eval.py

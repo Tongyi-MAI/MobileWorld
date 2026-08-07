@@ -1,0 +1,43 @@
+.git
+.github
+.venv
+**/__pycache__
+**/*.pyc
+**/*.swp
+**/.DS_Store
+.env
+artifacts
+assets
+docs
+resources
+scripts
+site
+traj_logs
+
+# Source/download inputs used to assemble the ARM release artifacts, but not by
+# the outer MobileWorld image build itself.
+docker/mattermost-arm64
+docker/redroid/MindTheGapps-*.zip
+docker/redroid/firefox-*.apk
+docker/redroid/redroid-data-full-amd64.tar.zst
+# Local pre-recapture safety copies are not release fixtures.
+docker/redroid_assets/golden/*.bak*
+# Golden backend state needs the database/uploads, not prior runtime logs.
+docker/mattermost-docker-bk/volumes/app/mattermost/logs/**
+
+# Only the explicit ARM runtime allowlist in Dockerfile.redroid enters the build
+# context. These maintenance/source/x86 assets are not needed by the image.
+docker/redroid_assets/README-*.md
+docker/redroid_assets/fossify-messages-sandbox-sms-send.patch
+docker/redroid_assets/mockcamera-src/**
+docker/redroid_assets/smsnotifier-src/**
+docker/redroid_assets/phone-page-src/redroid-phone-proxy.service
+docker/redroid_assets/phone-page-src/setup-phone-page.sh
+docker/redroid_assets/timeshift/libtimeshift.so
+docker/redroid_assets/vibrator/android.hardware.vibrator-service.example
+docker/redroid_assets/vibrator/android.hardware.vibrator.xml
+docker/redroid_assets/vibrator/vibrator-default.rc
+docker/redroid_assets/golden/events_golden.db
+
+# The legacy emulator image inputs are unrelated to Dockerfile.redroid.
+docker/emulator

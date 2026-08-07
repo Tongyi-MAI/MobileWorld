@@ -67,6 +67,8 @@ for f in *.tar; do docker load -i "$f"; done
 
 cd /app/service
 
+# Skip the runtime uv sync/rebuild by default; set MW_UV_SYNC=1 to force one.
+[ "${MW_UV_SYNC:-0}" = "1" ] || export UV_NO_SYNC=1 UV_FROZEN=1
 
 if [ "${ENABLE_VNC:-false}" = "true" ] || [ "${ENABLE_VNC:-false}" = "1" ]; then
     /app/docker/start_novnc.sh

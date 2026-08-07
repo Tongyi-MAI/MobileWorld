@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redroid Phone</title>
+  <script>
+    (function () {
+      const DEVICE_WIDTH = 720;
+      const DEVICE_HEIGHT = 1600;
+      const SCRCPY_PORT = 8886;
+      const params = new URLSearchParams(location.search);
+      const udid = params.get('udid') || 'emulator-5554';
+      const player = params.get('player') || (window.VideoDecoder ? 'webcodecs' : 'mse');
+      const viewportKey = `${window.innerWidth}x${window.innerHeight}`;
+
+      function seedPlayerStorage(prefix) {
+        const value = {
+          bitrate: 7340032,
+          maxFps: 30,
+          iFrameInterval: 5,
+          bounds: { width: DEVICE_WIDTH, height: DEVICE_HEIGHT },
+          crop: null,
+          sendFrameMeta: false,
+          lockedVideoOrientation: -1,
+          displayId: 0
+        };
+        const shortKey = `${prefix}:${udid}:${viewportKey}`;
+        const fullKey = `${shortKey}:0:${DEVICE_WIDTH}x${DEVICE_HEIGHT}`;
+        localStorage.setItem(shortKey, JSON.stringify(value));
+        localStorage.setItem(fullKey, JSON.stringify(value));
+        localStorage.setItem(`${shortKey}:fit`, 'false');
+        localStorage.setItem(`${fullKey}:fit`, 'false');
+      }
+
+      function buildHash() {
+        const ws = new URL(location.href);
+        ws.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws.pathname = '/';
+        ws.search = '';
+        ws.hash = '';
+        ws.searchParams.set('action', 'proxy-adb');
+        ws.searchParams.set('remote', `tcp:${SCRCPY_PORT}`);
+        ws.searchParams.set('udid', udid);
+
+        return `!${new URLSearchParams({
+          action: 'stream',
+          udid,
+          player,
+          ws: ws.toString()
+        }).toString()}`;
+      }
+
+      seedPlayerStorage('WebCodecsPlayer');
+      seedPlayerStorage('MseDecoder');
+      seedPlayerStorage('Tinyh264Decoder');
+      seedPlayerStorage('BroadwayDecoder');
+
+      const hash = buildHash();
+      if (location.hash !== `#${hash}`) {
+        location.replace(`${location.pathname}${location.search}#${hash}`);
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="/main.css">
+  <style>
+    :root {
+      color-scheme: light;
+      --phone-w: min(78vw, calc((100vh - 88px) * 9 / 20));
+      --phone-h: calc(var(--phone-w) * 20 / 9);
+      --phone-radius: clamp(24px, 3.3vw, 46px);
+      --phone-border: clamp(5px, 0.8vw, 9px);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #f7f7f8 !important;
+      color: #111827;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body.stream,
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    .device-view {
+      float: none !important;
+      display: block !important;
+      position: relative !important;
+      width: var(--phone-w) !important;
+      height: var(--phone-h) !important;
+      z-index: 1;
+      overflow: visible !important;
+    }
+
+    .video {
+      float: none !important;
+      position: relative !important;
+      width: var(--phone-w) !important;
+      height: var(--phone-h) !important;
+      overflow: hidden !important;
+      border: var(--phone-border) solid #303236;
+      border-radius: var(--phone-radius);
+      background: #050816;
+      box-shadow:
+        0 24px 58px rgba(17, 24, 39, 0.20),
+        0 2px 12px rgba(17, 24, 39, 0.14);
+    }
+
+    .video-layer,
+    .touch-layer {
+      position: absolute !important;
+      inset: 0 auto auto 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none !important;
+      max-height: none !important;
+      transform: none !important;
+      transform-origin: top left !important;
+    }
+
+    .control-buttons-list {
+      position: absolute !important;
+      left: calc(100% + 24px) !important;
+      top: 50% !important;
+      transform: translateY(-50%);
+      width: auto !important;
+      display: flex !important;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.92) !important;
+      box-shadow:
+        0 18px 40px rgba(17, 24, 39, 0.16),
+        inset 0 0 0 1px rgba(17, 24, 39, 0.06);
+      backdrop-filter: blur(18px);
+      z-index: 5;
+    }
+
+    .control-button {
+      width: 46px !important;
+      height: 46px !important;
+      display: grid !important;
+      place-items: center;
+      margin: 0 !important;
+      border: 0;
+      border-radius: 999px;
+      background: transparent !important;
+      color: #1f2937;
+      opacity: 1 !important;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .control-button:hover {
+      background: #eef0f3 !important;
+    }
+
+    .control-button:active {
+      background: #dfe3e8 !important;
+      transform: translateY(1px);
+    }
+
+    .control-button > svg {
+      width: 25px !important;
+      height: 25px !important;
+    }
+
+    .control-button > svg,
+    .control-button > svg path {
+      fill: currentColor !important;
+    }
+
+    /* We render our own control strip (.mw-ctl buttons, injected below) and hide
+       ws-scrcpy's native buttons/toggles: its set is inconsistent across builds and
+       it themes the icon fill via prefers-color-scheme, which made the icons vanish
+       in dark mode. Our buttons keep their own colors in both schemes. */
+    .control-buttons-list > .control-button:not(.mw-ctl),
+    .control-buttons-list > .control-wrapper {
+      display: none !important;
+    }
+
+    .more-box {
+      display: none !important;
+    }
+
+    /* Dark mode: pin a dark translucent pill with light icons so the control strip
+       and the keyboard popup stay readable when the browser/OS is in dark mode. */
+    @media (prefers-color-scheme: dark) {
+      .control-buttons-list {
+        background: rgba(28, 32, 38, 0.92) !important;
+        box-shadow:
+          0 18px 40px rgba(0, 0, 0, 0.5),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+      }
+      .control-button { color: #e8eaed; }
+      .control-button:hover { background: rgba(255, 255, 255, 0.12) !important; }
+      .control-button:active { background: rgba(255, 255, 255, 0.20) !important; }
+      .kb-dialog { background: #1f2329; }
+      .kb-dialog h3 { color: #e8eaed; }
+      .kb-dialog textarea { background: #14171b; color: #e8eaed; border-color: #3a3f46; }
+      .kb-btn.secondary { background: #2a2f36; color: #e5e7eb; }
+      .kb-hint { color: #9aa3ad; }
+    }
+
+    .loading {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      display: grid;
+      place-items: center;
+      color: rgba(17, 24, 39, 0.54);
+      font-size: 15px;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+
+    .loading.hidden {
+      opacity: 0;
+    }
+
+    @media (max-width: 760px) {
+      :root {
+        --phone-w: min(92vw, calc((100vh - 96px) * 9 / 20));
+      }
+
+      .control-buttons-list {
+        left: 50% !important;
+        top: calc(100% + 12px) !important;
+        transform: translateX(-50%);
+        flex-direction: row;
+        padding: 8px;
+      }
+
+      .control-button {
+        width: 44px !important;
+        height: 44px !important;
+      }
+    }
+
+    /* --- injected: keyboard text-input popup --- */
+    .kb-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      place-items: center;
+      background: rgba(17, 24, 39, 0.32);
+      backdrop-filter: blur(2px);
+    }
+
+    .kb-overlay.open {
+      display: grid;
+    }
+
+    .kb-dialog {
+      width: min(92vw, 460px);
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 24px 60px rgba(17, 24, 39, 0.28);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .kb-dialog h3 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .kb-dialog textarea {
+      width: 100%;
+      min-height: 72px;
+      resize: vertical;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 15px;
+      color: #111827;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    .kb-dialog textarea:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+    }
+
+    .kb-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .kb-btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 16px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .kb-btn.secondary {
+      background: #eef0f3;
+      color: #374151;
+    }
+
+    .kb-btn.primary {
+      background: #4f46e5;
+      color: #ffffff;
+    }
+
+    .kb-btn.primary:active {
+      transform: translateY(1px);
+    }
+
+    .kb-hint {
+      font-size: 12px;
+      color: #6b7280;
+      margin: 0;
+    }
+  </style>
+  <script defer src="/bundle.js"></script>
+</head>
+<body>
+  <div id="loading" class="loading">Connecting</div>
+  <script>
+    window.addEventListener('load', function () {
+      const loading = document.getElementById('loading');
+      const tuneStream = function () {
+        const box = document.querySelector('.more-box');
+        if (!box) {
+          return false;
+        }
+        const pairs = new Map([
+          ['Bitrate:', '7340032'],
+          ['Max fps:', '30'],
+          ['I-Frame Interval:', '5'],
+          ['Max width:', '720'],
+          ['Max height:', '1600']
+        ]);
+        for (const label of box.querySelectorAll('label')) {
+          const value = pairs.get(label.textContent.trim());
+          const input = label.nextElementSibling;
+          if (value && input && 'value' in input) {
+            input.value = value;
+          }
+        }
+        const button = Array.from(box.querySelectorAll('button'))
+          .find(function (item) {
+            return item.textContent.trim() === 'Change video settings';
+          });
+        if (button) {
+          button.click();
+          return true;
+        }
+        return false;
+      };
+      const hideWhenReady = function () {
+        const media = document.querySelector('.video-layer, video');
+        if (media && loading) {
+          loading.classList.add('hidden');
+          return true;
+        }
+        return false;
+      };
+      if (!hideWhenReady()) {
+        const timer = setInterval(function () {
+          if (hideWhenReady()) {
+            clearInterval(timer);
+          }
+        }, 300);
+        setTimeout(function () {
+          if (loading) {
+            loading.classList.add('hidden');
+          }
+          clearInterval(timer);
+        }, 7000);
+      }
+
+      const tuneTimer = setInterval(function () {
+        if (tuneStream()) {
+          clearInterval(tuneTimer);
+        }
+      }, 500);
+      setTimeout(function () {
+        clearInterval(tuneTimer);
+      }, 8000);
+    });
+  </script>
+  <script>
+    /* --- injected control strip: Back / Home / Recents / Enter / Keyboard /
+       Volume / Power — all routed through the same-origin phone proxy --- */
+    (function () {
+      // The phone proxy (same origin, /kbd prefix) exposes:
+      //   POST /kbd/key  {udid,key}  -> adb shell input keyevent <key>
+      //   POST /kbd/text {udid,text} -> type the text via ADBKeyboard
+      // We render our OWN buttons (.mw-ctl) and hide ws-scrcpy's native strip, so the
+      // controls stay readable in dark mode and mirror the controller's device actions.
+
+      function getUdid() {
+        const p = new URLSearchParams(location.search);
+        if (p.get('udid')) return p.get('udid');
+        const m = location.hash.match(/[#&!]udid=([^&]+)/);
+        if (m) return decodeURIComponent(m[1]);
+        return 'emulator-5554';
+      }
+      function kbdUrl(path) { return '/kbd' + path; }
+      function postJson(path, body) {
+        return fetch(kbdUrl(path), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ udid: getUdid() }, body))
+        }).then(function (r) { return r.ok; }).catch(function () { return false; });
+      }
+      // input keyevent <key> on the device (Back/Home/Recents/Enter/Volume/Power).
+      function sendKey(key) { return postJson('/key', { key: key }); }
+      // type text into the focused field via ADBKeyboard.
+      function sendText(text) { return postJson('/text', { text: text }); }
+
+      // ---- keyboard text-input popup ----
+      const overlay = document.createElement('div');
+      overlay.className = 'kb-overlay';
+      overlay.innerHTML =
+        '<div class="kb-dialog" role="dialog" aria-modal="true">' +
+        '  <h3>Type on phone</h3>' +
+        '  <textarea id="kb-text" placeholder="Type text, then press Enter…" spellcheck="false"></textarea>' +
+        '  <p class="kb-hint">Tap a text field on the phone first, then enter text here. Sent via ADBKeyboard.</p>' +
+        '  <div class="kb-row">' +
+        '    <button type="button" class="kb-btn secondary" id="kb-cancel">Cancel</button>' +
+        '    <button type="button" class="kb-btn primary" id="kb-send">Enter</button>' +
+        '  </div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      const ta = overlay.querySelector('#kb-text');
+      const btnSend = overlay.querySelector('#kb-send');
+      const btnCancel = overlay.querySelector('#kb-cancel');
+      const hint = overlay.querySelector('.kb-hint');
+      const HINT_DEFAULT = hint.textContent;
+
+      function resetHint() { hint.textContent = HINT_DEFAULT; hint.style.color = ''; }
+      function openPopup() { resetHint(); overlay.classList.add('open'); ta.value = ''; setTimeout(function () { ta.focus(); }, 30); }
+      function closePopup() { overlay.classList.remove('open'); }
+      async function submit() {
+        const text = ta.value;
+        if (!text) { closePopup(); return; }
+        btnSend.disabled = true;
+        const ok = await sendText(text);
+        btnSend.disabled = false;
+        if (ok) {
+          closePopup();
+        } else {
+          hint.textContent = 'Could not reach the keyboard helper (/kbd) — is the phone proxy running?';
+          hint.style.color = '#dc2626';
+        }
+      }
+      btnSend.addEventListener('click', submit);
+      btnCancel.addEventListener('click', closePopup);
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) closePopup(); });
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+        else if (e.key === 'Escape') { e.preventDefault(); closePopup(); }
+      });
+
+      // ---- control buttons (Material icon paths) ----
+      const SVG = {
+        back: '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>',
+        home: '<svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>',
+        recents: '<svg viewBox="0 0 24 24"><path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>',
+        enter: '<svg viewBox="0 0 24 24"><path d="M19 7v4H5.83l3.58-3.59L8 6l-6 6 6 6 1.41-1.41L5.83 13H21V7z"/></svg>',
+        keyboard: '<svg viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>',
+        volUp: '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>',
+        volDown: '<svg viewBox="0 0 24 24"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>',
+        power: '<svg viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg>'
+      };
+      // [title, icon, onClick]
+      const BUTTONS = [
+        ['Back', SVG.back, function () { sendKey('KEYCODE_BACK'); }],
+        ['Home', SVG.home, function () { sendKey('KEYCODE_HOME'); }],
+        ['Recent apps', SVG.recents, function () { sendKey('KEYCODE_APP_SWITCH'); }],
+        ['Enter', SVG.enter, function () { sendKey('KEYCODE_ENTER'); }],
+        ['Keyboard', SVG.keyboard, openPopup],
+        ['Volume up', SVG.volUp, function () { sendKey('KEYCODE_VOLUME_UP'); }],
+        ['Volume down', SVG.volDown, function () { sendKey('KEYCODE_VOLUME_DOWN'); }],
+        ['Power', SVG.power, function () { sendKey('KEYCODE_POWER'); }]
+      ];
+
+      function ensureButtons() {
+        const list = document.querySelector('.control-buttons-list');
+        if (!list) return false;
+        if (list.querySelector('.mw-ctl')) return true; // injected already
+        BUTTONS.forEach(function (spec) {
+          const btn = document.createElement('button');
+          btn.className = 'control-button mw-ctl';
+          btn.type = 'button';
+          btn.setAttribute('title', spec[0]);
+          btn.setAttribute('aria-label', spec[0]);
+          btn.innerHTML = spec[1];
+          btn.addEventListener('click', spec[2]);
+          list.appendChild(btn);
+        });
+        return true;
+      }
+      const ctlTimer = setInterval(function () { if (ensureButtons()) clearInterval(ctlTimer); }, 400);
+      setTimeout(function () { clearInterval(ctlTimer); }, 15000);
+    })();
+  </script>
+</body>
+</html>

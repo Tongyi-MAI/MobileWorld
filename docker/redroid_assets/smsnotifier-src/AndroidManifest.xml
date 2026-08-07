@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tiny headless helper: posts a persistent SMS-style system notification on a
+     broadcast. redroid has no SIM, so injected SMS (written straight into the
+     telephony provider + Fossify DB) never go through Fossify's SMS_DELIVER
+     receiver and thus post no notification. inject_inbound_sms broadcasts to this
+     app instead; a real-app notification persists in the shade (unlike a shell
+     `cmd notification post`, which is torn down when the cmd process exits). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.mobileworld.smsnotifier">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:label="Messages"
+        android:allowBackup="false">
+        <receiver
+            android:name=".NotifyReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mobileworld.smsnotifier.SHOW" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

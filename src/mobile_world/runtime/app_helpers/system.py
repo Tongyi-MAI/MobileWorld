@@ -1,9 +1,11 @@
 import datetime
+import os
 import re
 
 from loguru import logger
 
 from mobile_world.runtime.controller import AndroidController
+from mobile_world.runtime.utils.device import is_redroid
 from mobile_world.runtime.utils.helpers import execute_adb, execute_root_sql
 
 
@@ -52,6 +54,48 @@ def get_display_density(controller: AndroidController) -> int:
     return 420  # Default density for common devices
 
 
+def get_physical_density(controller: AndroidController) -> int:
+    """Physical (base) display density, ignoring any user Display-size override."""
+    result = execute_adb(f"adb -s {controller.device} shell wm density")
+    if result.success and result.output.strip():
+        match = re.search(r"Physical density:\s*(\d+)", result.output)
+        if match:
+            return int(match.group(1))
+    return 0
+
+
+def get_min_screen_dimension(controller: AndroidController) -> int:
+    """Smallest physical screen dimension in px (from ``wm size``)."""
+    result = execute_adb(f"adb -s {controller.device} shell wm size")
+    if result.success and result.output.strip():
+        match = re.search(r"Physical size:\s*(\d+)x(\d+)", result.output)
+        if match:
+            return min(int(match.group(1)), int(match.group(2)))
+    return 0
+
+
+def get_display_size_density_bounds(controller: AndroidController) -> tuple[int, int]:
+    """Return ``(min_density, max_density)`` the system "Display size" control offers
+    on this device, derived from the device's physical density and screen size — so it
+    is resolution-independent and needs no hardcoded DPI.
+
+    Mirrors AOSP ``DisplayDensityUtils``: the offered densities are scales of the
+    *physical* density from 0.85x (smallest) up to min(1.5x, the largest density that
+    keeps the smallest screen edge >= 320dp). Returns ``(0, 0)`` if the device can't be
+    queried. Callers should compare with a small tolerance to absorb Android's integer
+    rounding (the slider steps are ~9% of the physical density apart, far larger than
+    that rounding, so any tolerance up to a few DPI is unambiguous).
+    """
+    physical = get_physical_density(controller)
+    min_dim = get_min_screen_dimension(controller)
+    if physical <= 0 or min_dim <= 0:
+        return 0, 0
+    min_density = round(physical * 0.85)
+    cap = 160 * min_dim // 320  # largest density keeping the smallest edge >= 320dp
+    max_density = min(round(physical * 1.5), cap)
+    return min_density, max_density
+
+
 def get_screen_brightness(controller: AndroidController) -> int:
     """Get current screen brightness setting (0-255)."""
     result = execute_adb(f"adb -s {controller.device} shell settings get system screen_brightness")
@@ -86,11 +130,40 @@ def enable_auto_time_sync(controller: AndroidController) -> bool:
 
 
 def time_sync_to_now() -> bool:
+    # redroid has no per-guest RTC; the libtimeshift shim drives the device clock. Re-sync
+    # the guest to the active timeshift offset (base.set_task_timeframe picks the frame:
+    # real time for time-sync tasks, else the benchmark date). No host clock change.
+    if is_redroid():
+        from mobile_world.runtime.utils import redroid_device
+
+        redroid_device.reapply_timeshift(os.environ.get("ANDROID_DEVICE", "emulator-5554"))
+        redroid_device.set_task_timeframe(
+            os.environ.get("ANDROID_DEVICE", "emulator-5554"), date_str="", realtime=True
+        )
+        redroid_device.restart_zygote(os.environ.get("ANDROID_DEVICE", "emulator-5554"))
+        return True
     result = execute_adb("adb shell su root date $(date +%m%d%H%M%Y.%S)")
     return result.success
 
 
+def real_now() -> datetime.datetime:
+    """Real wall-clock now, bypassing the timeshift shim this server process runs under.
+
+    On redroid the MW server is LD_PRELOAD'd with the time-shift shim, so plain
+    ``datetime.now()`` here returns the device's *current* frame (often the 2025 benchmark
+    date). Task dates that must line up with the device after ``time_sync_to_now()`` have to
+    be derived from this instead. On non-redroid there is no shim, so it equals ``now()``.
+    """
+    if is_redroid():
+        from mobile_world.runtime.utils import redroid_device
+
+        return datetime.datetime.fromtimestamp(redroid_device._real_now_epoch())
+    return datetime.datetime.now()
+
+
 def reset_chrome(controller: AndroidController):
+    if is_redroid(controller.device):
+        return
     pkg = "com.android.chrome"
     # Stop and clear data to ensure a predictable clean start
     execute_adb(f"adb -s {controller.device} shell am force-stop {pkg}")
@@ -98,6 +171,9 @@ def reset_chrome(controller: AndroidController):
 
 
 def reset_maps(controller: AndroidController):
+    if is_redroid(controller.device):
+        # No Google Maps app on redroid; map flows degrade to web. Nothing to reset.
+        return
     pkg = "com.google.android.apps.maps"
     execute_adb(f"adb -s {controller.device} shell am force-stop {pkg}")
     execute_adb(f"adb -s {controller.device} shell pm clear {pkg}")
@@ -116,6 +192,38 @@ def extract_sms_body(line: str) -> str | None:
     if value and value != "NULL":
         return value
     return None
+
+
+def extract_sms_address(line: str) -> str | None:
+    """Extract the SMS `address` (recipient) field from a content-query row.
+
+    The value may contain spaces (e.g. '345 6784 3456'), so capture everything up
+    to the next ', <key>=' field rather than stopping at the first space.
+    """
+    match = re.search(r"address=(.*?),\s+\w+=", line)
+    if not match:
+        return None
+    value = match.group(1).strip()
+    if value and value != "NULL":
+        return value
+    return None
+
+
+def _redroid_phone_match(line: str, phone_number: str) -> bool:
+    """Digits-only, country-code-tolerant phone match for the redroid backend.
+
+    Old Google Messages normalized typed numbers to digits in the SMS provider, so
+    the emulator verifier's literal match worked. Fossify (redroid) stores the
+    address verbatim ('345 6784 3456'), so compare digits-only with a suffix rule.
+    """
+    address = extract_sms_address(line)
+    if address is None:
+        return False
+    want = "".join(filter(str.isdigit, phone_number))
+    have = "".join(filter(str.isdigit, address))
+    if not want or not have:
+        return False
+    return want == have or have.endswith(want) or want.endswith(have)
 
 
 def check_sms_via_adb(
@@ -143,8 +251,7 @@ def check_sms_via_adb(
 
         # Parse the result line by line
         # Each line represents a row with format: Row: X address=Y, body=Z, ...
-        lines = result.output.strip().split("\nRow")
-
+        lines = result.output.strip().replace("", "", 5).split("\nRow")
         for line in lines:
             if not line.strip():
                 continue
@@ -169,6 +276,10 @@ def check_sms_via_adb(
             )
 
             if f"address={phone_number}" in line or phone_number in line:
+                phone_match = True
+            elif is_redroid(controller.device) and _redroid_phone_match(line, phone_number):
+                # redroid only: Fossify stores the address verbatim (spaces/dashes/+),
+                # so fall back to a digits-only suffix match. Emulator path unchanged.
                 phone_match = True
 
             if content_match and phone_match:
@@ -200,14 +311,16 @@ def get_file_list(path: str) -> list[str]:
 
 
 def check_alarm_via_adb(controller: AndroidController, hour: int, minute: int) -> dict:
-    db_path = "/data/user_de/0/com.google.android.deskclock/databases/alarms.db"
+    # Google DeskClock on both emulator and redroid; its schema has blackout_end.
+    clock_pkg = "com.google.android.deskclock"
+    db_path = f"/data/user_de/0/{clock_pkg}/databases/alarms.db"
     sql_query = (
         f"SELECT hour, minutes, enabled, daysofweek, vibrate, ringtone, label, blackout_end "
         f"FROM alarm_templates WHERE hour={hour} AND minutes={minute};"
     )
 
     try:
-        result = execute_root_sql(db_path, sql_query)
+        result = execute_root_sql(db_path, sql_query, device=controller.device)
 
         if not result:
             logger.info(f"No alarm found or query failed for {hour}:{minute:02d}")
@@ -582,6 +695,61 @@ def check_contact_starred_via_adb(controller: AndroidController, phone_number: s
             logger.warning(f"Failed to query phone numbers: {phone_result.error}")
             return False
 
+        if is_redroid(controller.device):
+            # redroid only: the golden /data carries junk/duplicate contacts. Match
+            # robustly — skip junk/short numbers (a 'data1=-' row normalizes to '' and
+            # str.endswith('') is always True, which would match every input), collect
+            # ALL matching contacts, and treat the number as starred if ANY of them is.
+            normalized_input = "".join(filter(str.isdigit, phone_number))
+            matched_contact_ids: list[str] = []
+            for line in phone_result.output.strip().split("\n"):
+                if not line.strip() or not line.startswith("Row:"):
+                    continue
+                if "phone_v2" not in line and "vnd.android.cursor.item/phone_v2" not in line:
+                    continue
+                phone_match = re.search(r"data1=([^,]+)", line)
+                if not phone_match:
+                    continue
+                normalized_db = "".join(filter(str.isdigit, phone_match.group(1).strip()))
+                if not normalized_input or len(normalized_db) < 7:
+                    continue
+                if (
+                    normalized_input == normalized_db
+                    or normalized_db.endswith(normalized_input)
+                    or normalized_input.endswith(normalized_db)
+                ):
+                    contact_id_match = re.search(r"contact_id=([^,]+)", line)
+                    if contact_id_match:
+                        cid = contact_id_match.group(1).strip()
+                        if cid not in matched_contact_ids:
+                            matched_contact_ids.append(cid)
+
+            if not matched_contact_ids:
+                logger.warning(f"No contact found with phone number: {phone_number}")
+                return False
+            logger.info(f"Found contact_id(s)={matched_contact_ids} for phone={phone_number}")
+
+            for contact_id in matched_contact_ids:
+                contact_query_cmd = (
+                    f"adb -s {controller.device} shell content query --uri "
+                    f'"content://com.android.contacts/contacts" --projection "_id:starred" '
+                    f'--where "_id={contact_id}"'
+                )
+                contact_result = execute_adb(contact_query_cmd, output=False, root_required=False)
+                if not contact_result.success or not contact_result.output:
+                    continue
+                for line in contact_result.output.strip().split("\n"):
+                    if not line.strip() or not line.startswith("Row:"):
+                        continue
+                    starred_match = re.search(r"starred=([^,]+)", line)
+                    if starred_match and starred_match.group(1).strip() == "1":
+                        logger.info(f"Contact {contact_id} is starred (phone={phone_number})")
+                        return True
+
+            logger.info(f"No starred contact for phone={phone_number} among {matched_contact_ids}")
+            return False
+
+        # ---- emulator path (unchanged) ----
         # Find the contact_id that matches the phone number
         contact_id = None
         for line in phone_result.output.strip().split("\n"):
@@ -763,12 +931,13 @@ def check_contact_via_adb(
 
 def get_device_datetime() -> datetime.datetime:
     """Get current date and time from Android device in UTC."""
-    result = execute_adb("shell date +%Y-%m-%d\\ %H:%M:%S")
+    # Use epoch seconds (timezone-independent) and parse as UTC. The previous
+    # implementation parsed a "YYYY-MM-DD HH:MM:SS" string with the date-only
+    # format "%Y-%m-%d", which always raised and silently fell back to now().
+    result = execute_adb("shell date -u +%s")
     if result.success:
         try:
-            dt_str = result.output.strip()
-            dt = datetime.datetime.strptime(dt_str, "%Y-%m-%d")
-            return dt.replace(tzinfo=datetime.UTC)
+            return datetime.datetime.fromtimestamp(int(result.output.strip()), datetime.UTC)
         except (ValueError, TypeError):
             pass
     return datetime.datetime.now(datetime.UTC)

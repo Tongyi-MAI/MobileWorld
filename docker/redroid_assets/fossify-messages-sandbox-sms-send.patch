@@ -1,0 +1,79 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index ab24b77..17f28a2 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -69,7 +69,8 @@ android {
+ 
+     buildTypes {
+         debug {
+-            applicationIdSuffix = ".debug"
++            // redroid: keep applicationId = org.fossify.messages (no .debug suffix) so the
++            // MobileWorld APP_DICT mapping resolves to this patched build.
+         }
+         release {
+             isMinifyEnabled = true
+diff --git a/app/src/main/kotlin/org/fossify/messages/messaging/MessagingUtils.kt b/app/src/main/kotlin/org/fossify/messages/messaging/MessagingUtils.kt
+index ad46f1c..d1d881a 100644
+--- a/app/src/main/kotlin/org/fossify/messages/messaging/MessagingUtils.kt
++++ b/app/src/main/kotlin/org/fossify/messages/messaging/MessagingUtils.kt
+@@ -117,9 +117,12 @@ class MessagingUtils(val context: Context) {
+                     requireDeliveryReport = requireDeliveryReport, messageUri = messageUri
+                 )
+             } catch (e: Exception) {
+-                updateSmsMessageSendingStatus(messageUri, Sms.Outbox.MESSAGE_TYPE_FAILED)
+-                throw e // propagate error to caller
++                // redroid sandbox: no cellular radio means SmsManager throws (invalid subId).
++                // Swallow it; the message is force-marked sent below so the agent's action
++                // is recorded under content://sms/sent for the benchmark verifier.
+             }
++            // redroid sandbox: record the agent's outbound message as sent (type=2).
++            updateSmsMessageSendingStatus(messageUri, Sms.Sent.MESSAGE_TYPE_SENT)
+         }
+     }
+ 
+diff --git a/app/src/main/kotlin/org/fossify/messages/receivers/SmsStatusSentReceiver.kt b/app/src/main/kotlin/org/fossify/messages/receivers/SmsStatusSentReceiver.kt
+index 1a92924..b5a497c 100644
+--- a/app/src/main/kotlin/org/fossify/messages/receivers/SmsStatusSentReceiver.kt
++++ b/app/src/main/kotlin/org/fossify/messages/receivers/SmsStatusSentReceiver.kt
+@@ -25,19 +25,15 @@ class SmsStatusSentReceiver : SendStatusReceiver() {
+ 
+     override fun updateAndroidDatabase(context: Context, intent: Intent, receiverResultCode: Int) {
+         val messageUri: Uri? = intent.data
+-        val resultCode = resultCode
+         val messagingUtils = context.messagingUtils
+ 
+-        val type = if (resultCode == Activity.RESULT_OK) {
+-            Sms.MESSAGE_TYPE_SENT
+-        } else {
+-            Sms.MESSAGE_TYPE_FAILED
+-        }
++        // redroid sandbox: no cellular radio, so the platform sent-callback always
++        // reports failure. Treat the agent's outbound message as delivered so it lands
++        // under content://sms/sent (the benchmark verifier queries that view), and
++        // suppress the spurious "SIM card not available" error toast that the
++        // always-failing callback would otherwise show after every send.
++        val type = Sms.MESSAGE_TYPE_SENT
+         messagingUtils.updateSmsMessageSendingStatus(messageUri, type)
+-        messagingUtils.maybeShowErrorToast(
+-            resultCode = resultCode,
+-            errorCode = intent.getIntExtra(EXTRA_ERROR_CODE, NO_ERROR_CODE)
+-        )
+     }
+ 
+     override fun updateAppDatabase(context: Context, intent: Intent, receiverResultCode: Int) {
+@@ -45,13 +41,8 @@ class SmsStatusSentReceiver : SendStatusReceiver() {
+         if (messageUri != null) {
+             val messageId = messageUri.lastPathSegment?.toLong() ?: 0L
+             ensureBackgroundThread {
+-                val type = if (receiverResultCode == Activity.RESULT_OK) {
+-                    Sms.MESSAGE_TYPE_SENT
+-                } else {
+-                    showSendingFailedNotification(context, messageId)
+-                    Sms.MESSAGE_TYPE_FAILED
+-                }
+-
++                // redroid sandbox: always record the agent's message as sent (see above).
++                val type = Sms.MESSAGE_TYPE_SENT
+                 context.messagesDB.updateType(messageId, type)
+                 refreshMessages()
+                 refreshConversations()

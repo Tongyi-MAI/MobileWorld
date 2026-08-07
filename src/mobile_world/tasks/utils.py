@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import httpx
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -44,9 +45,13 @@ def user_agent_answer_question(
     Use LLM to mock the user to answer the agent question.
     stateless implementation, no need to save the conversation history.
     """
+    # The MW server runs clock-shifted (libtimeshift) so date-relative verifiers see the
+    # task timeframe; that shifted clock makes the LLM endpoint's TLS cert read "not yet
+    # valid" -> skip cert verification for this mock-user call (trusted endpoint, still TLS).
     llm = OpenAI(
         base_url=model_config.url,
         api_key=model_config.api_key,
+        http_client=httpx.Client(verify=False),
     )
     if chat_history is None:
         chat_history = []

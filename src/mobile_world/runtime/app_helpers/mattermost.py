@@ -8,15 +8,18 @@ import psycopg2
 from loguru import logger
 from psycopg2 import Error
 
-MATTERMOST_DOCKER_DIR = "/app/mattermost-docker"
+# All host-FS / connection constants are env-overridable so the same code drives the
+# dind/emulator image (no env set -> original /app/* defaults) and a redroid host, where
+# env points at a host-side sibling-container layout.
+MATTERMOST_DOCKER_DIR = os.getenv("MATTERMOST_DOCKER_DIR", "/app/mattermost-docker")
 COMPOSE_FILES = ["-f", "docker-compose.yml", "-f", "docker-compose.without-nginx.yml"]
-MATTERMOST_DB_HOST = "localhost"
-MATTERMOST_DB_DATABASE = "mattermost"
-MATTERMOST_DB_USER = "mmuser"
-MATTERMOST_DB_PASSWORD = "mmuser_password"
-MATTERMOST_DB_PORT = "5433"
+MATTERMOST_DB_HOST = os.getenv("MATTERMOST_DB_HOST", "localhost")
+MATTERMOST_DB_DATABASE = os.getenv("MATTERMOST_DB_DATABASE", "mattermost")
+MATTERMOST_DB_USER = os.getenv("MATTERMOST_DB_USER", "mmuser")
+MATTERMOST_DB_PASSWORD = os.getenv("MATTERMOST_DB_PASSWORD", "mmuser_password")
+MATTERMOST_DB_PORT = os.getenv("MATTERMOST_DB_PORT", "5433")
 
-MATTERMOST_STATUS_DIR = "/app/mattermost-docker-bk"
+MATTERMOST_STATUS_DIR = os.getenv("MATTERMOST_STATUS_DIR", "/app/mattermost-docker-bk")
 SAM_HARRY_CHANNEL_ID = "m3d6byju9ig4dneosajg9hu1be"
 HARRY_ID = "p11jse4oa3biikeeefcuggns9o"
 PHOENIX_CHANNEL_ID = "6xntskboopfwxysbdebkzqyckh"
@@ -41,7 +44,9 @@ DEFAULT_PASSWORD = "password"
 
 class MattermostCLI:
     def __init__(
-        self, container_id: str = "mattermost-docker", server_url: str = "http://127.0.0.1:8065"
+        self,
+        container_id: str = os.getenv("MATTERMOST_COMPOSE_PROJECT", "mattermost-docker"),
+        server_url: str = "http://127.0.0.1:8065",
     ):
         self.container_id = container_id
         self.server_url = server_url
@@ -73,12 +78,13 @@ class MattermostCLI:
             bool: True if login successful, False otherwise
         """
         command = f'''
-echo "{password}" > /tmp/mmctl_pass.txt && \
+password_file="${{TMPDIR:-/tmp}}/mmctl_pass.txt" && \
+printf '%s' "{password}" > "$password_file" && \
 mmctl auth login {self.server_url} \
     --name {self.auth_name} \
     --username {username} \
-    --password-file /tmp/mmctl_pass.txt && \
-rm -f /tmp/mmctl_pass.txt
+    --password-file "$password_file" && \
+rm -f "$password_file"
 '''
         returncode, stdout, stderr = self._exec_in_container(command)
         return returncode == 0 and "stored" in stdout
@@ -100,12 +106,13 @@ rm -f /tmp/mmctl_pass.txt
         # First login as admin
         admin_auth_name = "admin-session"
         login_command = f'''
-echo "{admin_password}" > /tmp/mmctl_pass.txt && \
+password_file="${{TMPDIR:-/tmp}}/mmctl_pass.txt" && \
+printf '%s' "{admin_password}" > "$password_file" && \
 mmctl auth login {self.server_url} \
     --name {admin_auth_name} \
     --username {admin_username} \
-    --password-file /tmp/mmctl_pass.txt && \
-rm -f /tmp/mmctl_pass.txt
+    --password-file "$password_file" && \
+rm -f "$password_file"
 '''
         returncode, stdout, stderr = self._exec_in_container(login_command)
         if returncode != 0 or "stored" not in stdout:
@@ -342,6 +349,54 @@ def copytree_with_ownership(src, dst):
     subprocess.run(["cp", "-rp", src, dst], check=True)
 
 
+def _prepare_redroid_tmpfs():
+    """Move Mattermost's tmpfs below an existing ARM image mountpoint.
+
+    The upstream 10.5.2 ARM64 rootfs omits /tmp. Under nested fuse-overlayfs,
+    runc cannot create that root-level mountpoint, but the golden data bind is
+    present at /mattermost/data. Keep temporary files ephemeral by mounting the
+    same tmpfs at a pre-created child of that bind and pointing TMPDIR to it.
+    """
+    if os.getenv("MOBILE_WORLD_BACKEND") != "redroid":
+        return
+
+    data_tmp = os.path.join(MATTERMOST_DOCKER_DIR, "volumes", "app", "mattermost", "data", "tmp")
+    os.makedirs(data_tmp, mode=0o1777, exist_ok=True)
+    os.chmod(data_tmp, 0o1777)
+
+    compose_path = os.path.join(MATTERMOST_DOCKER_DIR, "docker-compose.yml")
+    with open(compose_path) as compose_file:
+        compose = compose_file.read()
+    original = """    read_only: ${MATTERMOST_CONTAINER_READONLY}
+    tmpfs:
+      - /tmp
+    volumes:
+"""
+    replacement = """    read_only: ${MATTERMOST_CONTAINER_READONLY}
+    tmpfs:
+      - /mattermost/data/tmp
+    volumes:
+"""
+    if compose.count(original) != 1:
+        raise RuntimeError("unexpected Mattermost tmpfs block in docker-compose.yml")
+    compose = compose.replace(original, replacement)
+    environment_marker = """    environment:
+      # timezone inside container
+"""
+    environment_replacement = """    environment:
+      - TMPDIR=/mattermost/data/tmp
+      # timezone inside container
+"""
+    if compose.count(environment_marker) != 2:
+        raise RuntimeError("unexpected service environment blocks in docker-compose.yml")
+    mattermost_environment = compose.rfind(environment_marker)
+    compose = compose[:mattermost_environment] + compose[mattermost_environment:].replace(
+        environment_marker, environment_replacement, 1
+    )
+    with open(compose_path, "w") as compose_file:
+        compose_file.write(compose)
+
+
 def connect_to_postgres():
     try:
         connection = psycopg2.connect(
@@ -367,17 +422,17 @@ def get_table_schema(table_name="posts"):
 
     try:
         cursor.execute(f"""
-            SELECT 
+            SELECT
                 column_name,
                 data_type,
                 character_maximum_length,
                 is_nullable,
                 column_default
-            FROM 
+            FROM
                 information_schema.columns
-            WHERE 
+            WHERE
                 table_name = '{table_name}'
-            ORDER BY 
+            ORDER BY
                 ordinal_position;
         """)
 
@@ -580,6 +635,7 @@ def start_mattermost_backend(mattermost_backend_status_dir=MATTERMOST_STATUS_DIR
     try:
         # mattermost backend requires 2000:2000 permission, need to preserve
         copytree_with_ownership(mattermost_backend_status_dir, MATTERMOST_DOCKER_DIR)
+        _prepare_redroid_tmpfs()
 
         # Patch config before starting so Mattermost reads updated session settings
         _patch_mattermost_config()

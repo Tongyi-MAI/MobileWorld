@@ -6,12 +6,17 @@ from datetime import datetime
 
 from loguru import logger
 
+from mobile_world.runtime.utils.device import is_redroid
 from mobile_world.runtime.utils.helpers import (
     AdbResponse,
     execute_adb,
     time_within_ten_secs,
 )
-from mobile_world.runtime.utils.models import APP_DICT, COMMON_APP_MAPPER
+from mobile_world.runtime.utils.models import (
+    APP_DICT,
+    APP_DICT_REDROID_OVERRIDES,
+    COMMON_APP_MAPPER,
+)
 
 APP_LOWER_DICT = {
     app_name.lower(): package_name for package_name, app_name in COMMON_APP_MAPPER.items()
@@ -20,8 +25,14 @@ APP_LOWER_DICT.update({k.lower(): v for k, v in APP_DICT.items()})
 
 
 class AndroidController:
-    def __init__(self, device="emulator-5554"):
-        self.device = device
+    # Default reply when the user-agent LLM is unreachable on a task that does not
+    # depend on the interaction (see ask_user); interaction tasks raise instead.
+    USER_AGENT_FALLBACK_ANSWER = "I do not know"
+
+    def __init__(self, device: str | None = None):
+        # Default device id is env-overridable so the same code drives the QEMU
+        # emulator ('emulator-5554') or a redroid container ('host:port').
+        self.device = device or os.environ.get("ANDROID_DEVICE", "emulator-5554")
         self.screenshot_dir = "/sdcard"
         self.xml_dir = "/sdcard"
         self.ac_xml_dir = "/sdcard/Android/data/com.example.android.xml_parser/files"
@@ -35,6 +46,10 @@ class AndroidController:
         # Initialize user interaction properties
         self.user_sys_prompt = None
         self.model_config = None
+        # When True, ask_user falls back to USER_AGENT_FALLBACK_ANSWER on LLM failure
+        # instead of raising. Set per-task in initialize_user_agent_hook (True for tasks
+        # not tagged agent-user-interaction). Default False preserves strict behavior.
+        self.allow_user_agent_fallback = False
 
     def get_device_size(self):
         try:
@@ -114,6 +129,10 @@ class AndroidController:
         return result
 
     def get_ac_xml(self, prefix, save_dir):
+        if is_redroid(self.device):
+            # The custom accessibility dumper app (com.example.android.xml_parser)
+            # is not present on redroid; fall back to standard uiautomator dump.
+            return self.get_xml(prefix, save_dir)
         remote_path = f"{os.path.join(self.ac_xml_dir, 'ui.xml').replace(self.backslash, '/')}"
         local_path = os.path.join(save_dir, prefix + ".xml")
         pull_command = f"adb -s {self.device} pull {remote_path} {local_path}"
@@ -196,6 +215,24 @@ class AndroidController:
                 error="sender and message must not be None",
                 command=f"adb -s {self.device} emu sms send",
             )
+        if is_redroid(self.device):
+            # redroid has no modem/emulator-console, so `emu sms send` doesn't exist.
+            # A plain `content insert content://sms/inbox` doesn't work either: the
+            # shell isn't the default SMS app (the provider silently drops the row),
+            # and Fossify (the Messages app) keeps its own cache it never re-syncs
+            # from the provider. redroid_device.inject_inbound_sms mirrors the golden
+            # seed: write the row into both the telephony provider and Fossify's cache
+            # as root, so it's visible in Messages — the redroid analogue of emu sms.
+            from mobile_world.runtime.utils import redroid_device
+
+            ok, detail = redroid_device.inject_inbound_sms(self.device, str(sender), str(message))
+            logger.info(f"simulate_sms (redroid inject): ok={ok} {detail}")
+            return AdbResponse(
+                success=ok,
+                output=detail if ok else "",
+                error="" if ok else detail,
+                command=f"redroid inject_inbound_sms {sender!r}",
+            )
         adb_command = f"adb -s {self.device} emu sms send {shlex.quote(str(sender))} {shlex.quote(str(message))}"
         ret = execute_adb(adb_command)
         logger.info(f"simulate_sms command: {adb_command}")
@@ -223,6 +260,35 @@ class AndroidController:
             x = self.width // 2
         if y is None:
             y = self.height // 2
+
+        if is_redroid(self.device):
+            # redroid (e.g. 720x1600) is smaller than the reference emulator, so the
+            # width-based offset below yields short, low-velocity swipes that barely
+            # fling — each scroll covers far less content than the old env. Use a larger
+            # height-based vertical distance (and a wider horizontal one) with a shorter
+            # duration so the gesture flings comparably. Measured ~730px content
+            # displacement per up-swipe vs ~320px before (emulator reference ~495px).
+            v = int(self.height * 0.33)
+            h = int(self.width * 0.6)
+            if direction == "up":
+                dx, dy = 0, -v
+            elif direction == "down":
+                dx, dy = 0, v
+            elif direction == "left":
+                dx, dy = -h, 0
+            elif direction == "right":
+                dx, dy = h, 0
+            else:
+                return AdbResponse(
+                    success=False,
+                    error=f"Invalid direction: {direction}. Must be one of: up, down, left, right",
+                    command=f"adb -s {self.device} shell input swipe",
+                )
+            margin = 8
+            end_x = max(margin, min(self.width - margin, x + dx))
+            end_y = max(margin, min(self.height - margin, y + dy))
+            adb_command = f"adb -s {self.device} shell input swipe {x} {y} {end_x} {end_y} 340"
+            return execute_adb(adb_command)
 
         unit_dist = int(self.width / 10)
         unit_dist *= 2
@@ -257,19 +323,70 @@ class AndroidController:
     def launch_app(self, app_name: str) -> AdbResponse:
         command = ""
 
-        if app_name is not None and app_name.lower() in APP_LOWER_DICT:
-            command = f"adb -s {self.device} shell monkey -p {APP_LOWER_DICT[app_name.lower()]} -c android.intent.category.LAUNCHER 1"
-            ret = execute_adb(command)
-            if ret.success:
+        redroid = is_redroid(self.device)
+        lookup = APP_LOWER_DICT
+        if redroid:
+            # Substitute packages absent on redroid (Chrome/Maps/Google-Messages/etc).
+            lookup = {
+                **APP_LOWER_DICT,
+                **{k.lower(): v for k, v in APP_DICT_REDROID_OVERRIDES.items()},
+            }
+        if app_name is not None and app_name.lower() in lookup:
+            pkg = lookup[app_name.lower()]
+            command = (
+                f"adb -s {self.device} shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1"
+            )
+            # On redroid a translucent trampoline launcher (e.g. Google DocumentsUI
+            # "Files") can make monkey exit non-zero, or exit 0 yet not foreground the
+            # app. We decide success by the actual foreground state below, so the monkey
+            # attempt is best-effort there (don't log it as an error).
+            ret = execute_adb(command, output=not redroid)
+            if redroid:
+                # If the package isn't foreground, fall back to an explicit am start of
+                # its resolved launcher activity, which foregrounds the trampoline reliably.
+                fg = self._wait_app_foreground(pkg)
+                if not fg:
+                    self._am_start_launcher(pkg)
+                    fg = self._wait_app_foreground(pkg)
+                if fg:
+                    return AdbResponse(success=True, output=pkg, command=command)
+            elif ret.success:
                 return ret
         logger.warning(
-            f"Failed to launch the app: {app_name}. Available app list: {list(APP_LOWER_DICT.keys())}"
+            f"Failed to launch the app: {app_name}. Available app list: {list(lookup.keys())}"
         )
         return AdbResponse(
             success=False,
             error=f"Failed to launch the app: {app_name}",
             command=command,
         )
+
+    def _wait_app_foreground(self, pkg: str, retries: int = 4, delay: float = 0.7) -> bool:
+        """True once pkg owns the resumed (foreground) activity (polls briefly)."""
+        for attempt in range(retries):
+            resp = execute_adb(
+                f"adb -s {self.device} shell dumpsys activity activities", output=False
+            )
+            if resp.success and any(
+                "ResumedActivity" in line and pkg in line for line in resp.output.splitlines()
+            ):
+                return True
+            if attempt < retries - 1:
+                time.sleep(delay)
+        return False
+
+    def _am_start_launcher(self, pkg: str) -> None:
+        """Foreground pkg via an explicit am start of its resolved LAUNCHER activity."""
+        comp = execute_adb(
+            f"adb -s {self.device} shell cmd package resolve-activity --brief "
+            f"-c android.intent.category.LAUNCHER -a android.intent.action.MAIN {pkg}",
+            output=False,
+        )
+        if not comp.success:
+            return
+        components = [ln.strip() for ln in comp.output.splitlines() if "/" in ln]
+        if components:
+            execute_adb(f"adb -s {self.device} shell am start -n {components[-1]}", output=False)
 
     def answer(self, answer_str: str) -> None:
         self.interaction_cache = answer_str
@@ -311,16 +428,33 @@ class AndroidController:
             )
         except Exception as e:
             logger.error(f"[ASK_USER] Failed to get response from LLM service: {e}")
-            raise RuntimeError(f"Failed to get user agent response from LLM service: {e}") from e
+            if not self.allow_user_agent_fallback:
+                raise RuntimeError(
+                    f"Failed to get user agent response from LLM service: {e}"
+                ) from e
+            logger.warning(
+                f"[ASK_USER] LLM call failed; falling back to default answer "
+                f"'{self.USER_AGENT_FALLBACK_ANSWER}' (task not tagged agent-user-interaction)"
+            )
+            user_answer = self.USER_AGENT_FALLBACK_ANSWER
         if not user_answer:
             logger.error("[ASK_USER] LLM returned empty response")
-            raise RuntimeError("User agent LLM returned empty response")
+            if not self.allow_user_agent_fallback:
+                raise RuntimeError("User agent LLM returned empty response")
+            logger.warning(
+                f"[ASK_USER] LLM returned empty response; falling back to default answer "
+                f"'{self.USER_AGENT_FALLBACK_ANSWER}' (task not tagged agent-user-interaction)"
+            )
+            user_answer = self.USER_AGENT_FALLBACK_ANSWER
         self.user_agent_chat_history.append({"role": "user", "content": agent_question})
         self.user_agent_chat_history.append({"role": "assistant", "content": user_answer})
         logger.info(f"[ASK_USER] User answer: {user_answer}")
         return user_answer
 
     def check_ac_survive(self):
+        if is_redroid(self.device):
+            # No custom a11y dumper app on redroid; uiautomator path is used instead.
+            return True
         try:
             time_command = f"adb -s {self.device} shell stat -c %y /sdcard/Android/data/com.example.android.xml_parser/files/ui.xml"
             time_phone_command = f'adb -s {self.device} shell date +"%H:%M:%S"'
@@ -335,6 +469,8 @@ class AndroidController:
 
     def list_snapshots(self):
         """List all available snapshots for the emulator"""
+        if is_redroid(self.device):
+            return []
         try:
             adb_command = f"adb -s {self.device} emu avd snapshot list"
             result = execute_adb(adb_command)
@@ -358,6 +494,8 @@ class AndroidController:
 
     def delete_snapshot(self, tag):
         """Delete a snapshot with the given tag"""
+        if is_redroid(self.device):
+            return True
         try:
             adb_command = f"adb -s {self.device} emu avd snapshot delete {tag}"
             result = execute_adb(adb_command)
@@ -376,6 +514,9 @@ class AndroidController:
 
     def create_snapshot(self, tag=None):
         """Create a snapshot with optional tag name"""
+        if is_redroid(self.device):
+            # No QEMU snapshots; the container's clean /data is the baseline.
+            return tag or "redroid_baseline"
         try:
             if tag is None:
                 tag = f"snapshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -397,6 +538,10 @@ class AndroidController:
 
     def load_snapshot(self, tag):
         """Load a snapshot with the given tag"""
+        if is_redroid(self.device):
+            from mobile_world.runtime.utils import redroid_device
+
+            return redroid_device.restore_golden_data(self.device)
         try:
             adb_command = f"adb -s {self.device} emu avd snapshot load {tag}"
             result = execute_adb(adb_command)
@@ -419,23 +564,38 @@ class AndroidController:
         execute_adb("adb shell ime set com.android.adbkeyboard/.AdbIME")
 
     def check_health(self, try_times: int = 0) -> bool:
+        # Trust QEMU process-liveness; treat transient adb "offline" as
+        # recoverable. The old adb-shell-only check killed healthy-but-slow
+        # emulators under cluster load.
         try:
+            if is_redroid(self.device):
+                # No qemu process to pgrep; trust adb boot-completed.
+                res = execute_adb(
+                    f"adb -s {self.device} shell getprop sys.boot_completed", output=False
+                )
+                return bool(res.success and res.output and res.output.strip() == "1")
+            import subprocess
+
+            pgrep_res = subprocess.run(
+                ["pgrep", "-f", "qemu-system-x86_64-headless"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            qemu_alive = pgrep_res.returncode == 0 and bool(pgrep_res.stdout.strip())
+            if not qemu_alive:
+                logger.error(f"Health check failed for device {self.device}: no qemu process")
+                return False
+
             adb_command = f"adb -s {self.device} shell getprop sys.boot_completed"
             result = execute_adb(adb_command, output=False)
-
-            if not result.success or not result.output:
-                logger.error(f"Health check failed for device {self.device}: {result.error}")
-                if try_times > 0:
-                    time.sleep(3)
-                    return self.check_health(try_times - 1)
-                else:
-                    return False
-
-            # Boot completed should return "1"
-            if result.output.strip() == "1":
+            if result.success and result.output and result.output.strip() == "1":
                 return True
 
-            return False
+            logger.warning(
+                f"Health check: adb stale for {self.device} but QEMU alive; assuming healthy"
+            )
+            return True
         except Exception as e:
             logger.error(f"Health check failed for device {self.device}: {e}")
             return False

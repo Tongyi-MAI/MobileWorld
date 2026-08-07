@@ -60,3 +60,19 @@ src/mobile_world/tasks/definitions/native/delete_low_res_screenshots_ask_user.py
 tests/unit/tasks/test_compress_year_images_ask_user.py
 tests/unit/tasks/test_delete_low_res_screenshots_ask_user.py
 task_backups/
+
+# reDroid release-only runtime inputs. Keep custom implementation source public,
+# but distribute device state and architecture-specific binaries out of band.
+docker/redroid/*.apk
+docker/redroid/*.tar.gz
+docker/redroid/*.tar.zst
+docker/redroid/*.tgz
+docker/redroid/*.zip
+docker/mattermost-arm64/plugins/*.tar.gz
+docker/redroid_assets/*.apk
+docker/redroid_assets/golden/
+docker/redroid_assets/timeshift/
+docker/redroid_assets/vibrator/
+docker/redroid_assets/README-*.md
+docker/redroid_assets/phone-page-src/redroid-phone-proxy.service
+docker/redroid_assets/phone-page-src/setup-phone-page.sh

@@ -7,13 +7,13 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from dotenv import dotenv_values
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
-from dotenv import dotenv_values
 from mobile_world.core.api.env import (
     DEFAULT_IMAGE,
     DEFAULT_NAME_PREFIX,
@@ -23,6 +23,7 @@ from mobile_world.core.api.env import (
     find_available_ports,
     find_next_container_index,
     get_container_info,
+    get_image_runtime_volumes,
     kill_server_in_container,
     launch_container,
     list_containers,
@@ -173,8 +174,13 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
         "--mount-src",
         "--mount_src",
         dest="mount_src",
-        action="store_true",
-        help="Mount local src directory to container",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Mount local src directory to container. "
+            "Auto-enabled when ./src exists in the current directory; "
+            "pass --no-mount-src to opt out."
+        ),
     )
     launch_parser.add_argument(
         "--launch-interval",
@@ -333,9 +339,58 @@ def _wait_for_container_ready_with_progress(
     return False
 
 
+def _validate_http_proxy(url: str) -> None:
+    """Validate --http-proxy is a usable proxy URL; exit with a friendly error if not.
+
+    Catches the most common mistake — accidentally pasting a shell-style
+    assignment like `https_proxy=http://host:port` — plus missing scheme,
+    missing host, and malformed port.
+    """
+    from urllib.parse import urlparse
+
+    err: str | None = None
+    if "=" in url:
+        err = (
+            f"looks like a shell variable assignment, not a URL: {url!r}. "
+            "Pass just the URL value, e.g. --http-proxy http://proxy.host:8888"
+        )
+    else:
+        try:
+            parsed = urlparse(url)
+            _ = parsed.port  # raises ValueError on a non-numeric / out-of-range port
+        except ValueError as exc:
+            err = f"could not parse {url!r}: {exc}"
+        else:
+            if parsed.scheme not in {"http", "https", "socks4", "socks5", "socks5h"}:
+                err = (
+                    f"unsupported scheme {parsed.scheme!r} in {url!r}; "
+                    "expected http://, https://, or socks5:// (etc.)"
+                )
+            elif not parsed.hostname:
+                err = f"no host found in {url!r}"
+
+    if err:
+        console.print(
+            Panel(
+                f"[red]Invalid --http-proxy:[/red] {err}",
+                title="[red]✗ Invalid --http-proxy[/red]",
+                border_style="red",
+            )
+        )
+        sys.exit(1)
+
+
 def _launch_containers(args: argparse.Namespace) -> None:
     """Launch Docker containers."""
     count = args.count
+
+    if args.http_proxy:
+        _validate_http_proxy(args.http_proxy)
+
+    # Auto-enable --mount-src when ./src exists and the user didn't pass an
+    # explicit --mount-src / --no-mount-src override.
+    if args.mount_src is None:
+        args.mount_src = (Path.cwd() / "src").is_dir()
 
     # Dev mode only allows single container
     if args.dev and count > 1:
@@ -487,7 +542,6 @@ def _launch_containers(args: argparse.Namespace) -> None:
     table.add_column("Name", style="cyan", no_wrap=True)
     table.add_column("Backend", justify="right", style="yellow")
     table.add_column("Viewer", justify="right", style="yellow")
-    table.add_column("VNC", justify="right", style="yellow")
     table.add_column("ADB", justify="right", style="yellow")
 
     for idx, config in enumerate(container_configs, 1):
@@ -496,7 +550,6 @@ def _launch_containers(args: argparse.Namespace) -> None:
             config.name,
             str(config.backend_port),
             str(config.viewer_port),
-            str(config.vnc_port),
             str(config.adb_port),
         )
 
@@ -523,7 +576,7 @@ def _launch_containers(args: argparse.Namespace) -> None:
                 envs["HTTP_PROXY"] = config.http_proxy
                 envs["HTTPS_PROXY"] = config.http_proxy
 
-            volumes: list[tuple[str, str]] = []
+            volumes = get_image_runtime_volumes(config.image)
             if config.dev_src_path:
                 volumes.append((str(config.dev_src_path), "/app/service/src"))
             if config.env_file_path:
@@ -662,11 +715,8 @@ def _launch_containers(args: argparse.Namespace) -> None:
     table = Table(title="Launched Containers", show_header=True, header_style="bold magenta")
     table.add_column("Name", style="cyan", no_wrap=True)
     table.add_column("Backend", justify="right", style="yellow")
-    if not args.dev:
-        table.add_column("Viewer", justify="right", style="yellow")
+    table.add_column("Viewer", justify="right", style="yellow")
     table.add_column("ADB", justify="right", style="yellow")
-    if args.vnc or args.dev:
-        table.add_column("VNC", justify="right", style="yellow")
     table.add_column("Status", justify="center")
 
     for container in launched:
@@ -678,13 +728,10 @@ def _launch_containers(args: argparse.Namespace) -> None:
         row_data = [
             container["name"],
             str(container["backend_port"]),
+            str(container["viewer_port"]),
+            str(container["adb_port"]),
+            status,
         ]
-        if not args.dev:
-            row_data.append(str(container["viewer_port"]))
-        row_data.append(str(container["adb_port"]))
-        if args.vnc or args.dev:
-            row_data.append(str(container["vnc_port"]))
-        row_data.append(status)
         table.add_row(*row_data)
 
     console.print(table)

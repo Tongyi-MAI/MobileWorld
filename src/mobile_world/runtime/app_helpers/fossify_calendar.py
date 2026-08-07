@@ -7,6 +7,77 @@ from mobile_world.runtime.utils.helpers import execute_adb
 # make sure the emulator is rootable and adb root
 db_path = "/data/user/0/org.fossify.calendar/databases/events.db"
 
+# Column order for the fossify-calendar `events` INSERT. Single source of truth for
+# single-row inserts and any batch seeder built on build_event_values_row.
+EVENTS_INSERT_COLUMNS = (
+    "start_ts, end_ts, title, location, description, "
+    "reminder_1_minutes, reminder_2_minutes, reminder_3_minutes, "
+    "reminder_1_type, reminder_2_type, reminder_3_type, "
+    "repeat_interval, repeat_rule, repeat_limit, "
+    "repetition_exceptions, attendees, import_id, time_zone, "
+    "flags, event_type, parent_id, last_updated, source, "
+    "availability, access_level, color, type, status"
+)
+
+
+def _sql_escape(value) -> str:
+    return str(value).replace("'", "''")
+
+
+def build_event_values_row(
+    *,
+    start_ts: int,
+    end_ts: int,
+    title: str,
+    location: str = "",
+    description: str = "",
+    reminder_1_minutes: int = -1,
+    reminder_2_minutes: int = -1,
+    reminder_3_minutes: int = -1,
+    reminder_1_type: int = 0,
+    reminder_2_type: int = 0,
+    reminder_3_type: int = 0,
+    repeat_interval: int = 0,
+    repeat_rule: int = 0,
+    repeat_limit: int = 0,
+    repetition_exceptions: str = "[]",
+    attendees: str = "[]",
+    time_zone: str = "UTC",
+    flags: int = 0,
+    event_type: int = 1,
+    parent_id: int = 0,
+    source: str = "manual",
+    availability: int = 0,
+    access_level: int = 0,
+    color: int = 0,
+    type_field: int = 0,
+    status: int = 1,
+    last_updated: int | None = None,
+) -> str:
+    """Build one ``( … )`` VALUES tuple for the events INSERT, in EVENTS_INSERT_COLUMNS
+    order. CalendarEvent-agnostic so the single-row and batch insert paths share it.
+
+    NOTE: text values must not contain a double-quote character — that would break the
+    outer ``adb shell "…"`` quoting; ``_sql_escape`` only doubles single quotes (SQLite
+    standard). ``import_id`` is generated here (4-digit; may collide within a batch but is
+    ignored by verification). ``last_updated`` defaults to "now" in ms; pass ``0`` for a
+    deterministic value.
+    """
+    import_id = f"mock{random.randint(1000, 9999)}"
+    if last_updated is None:
+        last_updated = int(datetime.now().timestamp() * 1000)
+    return (
+        f"({start_ts}, {end_ts}, '{_sql_escape(title)}', "
+        f"'{_sql_escape(location)}', '{_sql_escape(description)}', "
+        f"{reminder_1_minutes}, {reminder_2_minutes}, {reminder_3_minutes}, "
+        f"{reminder_1_type}, {reminder_2_type}, {reminder_3_type}, "
+        f"{repeat_interval}, {repeat_rule}, {repeat_limit}, "
+        f"'{_sql_escape(repetition_exceptions)}', '{_sql_escape(attendees)}', "
+        f"'{import_id}', '{_sql_escape(time_zone)}', "
+        f"{flags}, {event_type}, {parent_id}, {last_updated}, '{_sql_escape(source)}', "
+        f"{availability}, {access_level}, {color}, {type_field}, {status})"
+    )
+
 
 def insert_calendar_event(
     title: str,
@@ -73,33 +144,37 @@ def insert_calendar_event(
     else:
         end_ts = end_time
 
-    # Generate import_id and last_updated
-    import_id = f"mock{random.randint(1000, 9999)}"
-    last_updated = int(datetime.now().timestamp() * 1000)
-
-    # Escape single quotes in strings
-    title = title.replace("'", "''")
-    location = location.replace("'", "''")
-    description = description.replace("'", "''")
-
-    # Build INSERT statement
-    insert_sql = f"""INSERT INTO events (
-        start_ts, end_ts, title, location, description,
-        reminder_1_minutes, reminder_2_minutes, reminder_3_minutes,
-        reminder_1_type, reminder_2_type, reminder_3_type,
-        repeat_interval, repeat_rule, repeat_limit,
-        repetition_exceptions, attendees, import_id, time_zone,
-        flags, event_type, parent_id, last_updated, source,
-        availability, access_level, color, type, status
-    ) VALUES (
-        {start_ts}, {end_ts}, '{title}', '{location}', '{description}',
-        {reminder_1_minutes}, {reminder_2_minutes}, {reminder_3_minutes},
-        {reminder_1_type}, {reminder_2_type}, {reminder_3_type},
-        {repeat_interval}, {repeat_rule}, {repeat_limit},
-        '{repetition_exceptions}', '{attendees}', '{import_id}', '{time_zone}',
-        {flags}, {event_type}, {parent_id}, {last_updated}, '{source}',
-        {availability}, {access_level}, {color}, {type_field}, {status}
-    );"""
+    # Build one VALUES row via the shared builder (single source of truth for the
+    # column order + escaping).
+    row = build_event_values_row(
+        start_ts=start_ts,
+        end_ts=end_ts,
+        title=title,
+        location=location,
+        description=description,
+        reminder_1_minutes=reminder_1_minutes,
+        reminder_2_minutes=reminder_2_minutes,
+        reminder_3_minutes=reminder_3_minutes,
+        reminder_1_type=reminder_1_type,
+        reminder_2_type=reminder_2_type,
+        reminder_3_type=reminder_3_type,
+        repeat_interval=repeat_interval,
+        repeat_rule=repeat_rule,
+        repeat_limit=repeat_limit,
+        repetition_exceptions=repetition_exceptions,
+        attendees=attendees,
+        time_zone=time_zone,
+        flags=flags,
+        event_type=event_type,
+        parent_id=parent_id,
+        source=source,
+        availability=availability,
+        access_level=access_level,
+        color=color,
+        type_field=type_field,
+        status=status,
+    )
+    insert_sql = f"INSERT INTO events ({EVENTS_INSERT_COLUMNS}) VALUES {row};"
 
     cmd = f'adb shell "sqlite3 {db_path} \\"{insert_sql}\\""'
     result = execute_adb(cmd, root_required=True)
