@@ -112,7 +112,22 @@ class BaseAgent(ABC):
                 )
 
                 self._log_openai_usage(response)
-                final_content = response.choices[0].message.content.strip()
+                message = response.choices[0].message
+                content = message.content
+                if content is None:
+                    # A reasoning model that exhausts max_tokens mid-thought
+                    # returns finish_reason="length" with content=None. Calling
+                    # .strip() on it raised an AttributeError that was caught
+                    # below, logged as a generic API error, and retried -- but
+                    # the same request cannot succeed on retry, so this only
+                    # burned the remaining attempts and hid the real cause.
+                    finish = getattr(response.choices[0], "finish_reason", None)
+                    logger.warning(
+                        f"Model returned no content (finish_reason={finish}); "
+                        "treating as an empty completion"
+                    )
+                    content = ""
+                final_content = content.strip()
                 # for k2.5, we keep its reasoning_content
                 if (
                     "kimi-k" in model.lower()
