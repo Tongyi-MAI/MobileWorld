@@ -103,7 +103,13 @@ class BaseAgent(ABC):
                         kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
 
                 if "kimi-k" in model.lower():
-                    kwargs["extra_body"] = {"enable_thinking": True}
+                    # Merge rather than assign: a caller-supplied extra_body
+                    # (e.g. provider routing on an inference router) must
+                    # survive, and a caller may set enable_thinking explicitly.
+                    kwargs["extra_body"] = {
+                        "enable_thinking": True,
+                        **(kwargs.get("extra_body") or {}),
+                    }
 
                 response = self.openai_client.chat.completions.create(
                     model=model,
