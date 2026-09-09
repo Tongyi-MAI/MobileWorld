@@ -118,6 +118,38 @@ def extract_sms_body(line: str) -> str | None:
     return None
 
 
+def get_sent_sms_bodies_via_adb(controller: AndroidController, phone_number: str) -> list[str]:
+    """Return sent SMS bodies for ``phone_number``, newest first."""
+    try:
+        remote_cmd = (
+            "content query --uri content://sms/sent "
+            '--projection address:date:body --sort "date DESC"'
+        )
+        query_cmd = f"adb -s {controller.device} shell '{remote_cmd}'"
+        result = execute_adb(query_cmd, output=False, root_required=True)
+        if not result.success or not result.output:
+            logger.warning(f"Failed to query SMS database: {result.error}")
+            return []
+
+        bodies = []
+        for row in result.output.strip().split("\nRow"):
+            if not row.strip():
+                continue
+
+            address_match = re.search(r"\baddress=([^,]*)", row)
+            if not address_match or address_match.group(1).strip() != phone_number:
+                continue
+
+            body = extract_sms_body(row)
+            if body is not None:
+                bodies.append(body)
+
+        return bodies
+    except Exception as e:
+        logger.error(f"Error getting sent SMS bodies via ADB: {e}")
+        return []
+
+
 def check_sms_via_adb(
     controller: AndroidController, phone_number: str, content: str | list[str]
 ) -> bool:
