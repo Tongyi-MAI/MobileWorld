@@ -2,7 +2,7 @@
 
 import re
 
-from mobile_world.runtime.app_helpers.system import check_sms_via_adb
+from mobile_world.runtime.app_helpers.system import get_sent_sms_bodies_via_adb
 from mobile_world.runtime.controller import AndroidController
 from mobile_world.tasks.base import BaseTask
 
@@ -57,11 +57,11 @@ class PlanCommuteRouteSmsTask(BaseTask):
         self._check_is_initialized()
 
         # Check 1: Verify SMS was sent
-        sms_content = check_sms_via_adb(controller, phone_number=self.RECIPIENT_PHONE, content="")
-        if not sms_content:
+        sms_bodies = get_sent_sms_bodies_via_adb(controller, self.RECIPIENT_PHONE)
+        if not sms_bodies:
             return 0.0, f"SMS not found sent to {self.RECIPIENT_PHONE}"
 
-        lines = [line.strip() for line in sms_content.split("\n") if line.strip()]
+        lines = [line.strip() for line in sms_bodies[0].splitlines() if line.strip()]
 
         if len(lines) < 3:
             return 0.0, f"Expected at least 3 lines in SMS, found {len(lines)}"
