@@ -26,6 +26,10 @@ ASK_USER = "ask_user"
 MCP = "mcp"
 ENV_FAIL = "error_env"
 DEFAULT_IMAGE = "ghcr.io/tongyi-mai/mobile_world:latest"
+# For *matching* running containers, not for launching them: the repository
+# without a tag, so that containers started from a pinned tag (v1.4, ...) are
+# still found by `mw env ls` / `mw env rm --all`.
+DEFAULT_IMAGE_FILTER = "ghcr.io/tongyi-mai/mobile_world"
 DEFAULT_NAME_PREFIX = "mobile_world_env"
 _ACTION_TYPES = (
     CLICK,

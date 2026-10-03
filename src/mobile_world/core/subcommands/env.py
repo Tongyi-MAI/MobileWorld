@@ -16,6 +16,7 @@ from rich.table import Table
 from dotenv import dotenv_values
 from mobile_world.core.api.env import (
     DEFAULT_IMAGE,
+    DEFAULT_IMAGE_FILTER,
     DEFAULT_NAME_PREFIX,
     ContainerConfig,
     check_image_status,
@@ -57,8 +58,8 @@ def _add_common_options(
     if image:
         parser.add_argument(
             "--image",
-            default=DEFAULT_IMAGE,
-            help=f"Filter by image name containing this string (default: {DEFAULT_IMAGE})",
+            default=DEFAULT_IMAGE_FILTER,
+            help=f"Filter by image name containing this string, any tag (default: {DEFAULT_IMAGE_FILTER})",
         )
 
 

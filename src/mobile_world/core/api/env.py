@@ -26,6 +26,7 @@ from mobile_world.runtime.utils.docker import (
 )
 from mobile_world.runtime.utils.models import (
     DEFAULT_IMAGE,
+    DEFAULT_IMAGE_FILTER,
     DEFAULT_NAME_PREFIX,
     ContainerConfig,
     ContainerInfo,
@@ -376,7 +377,7 @@ def launch_containers(
 
 
 def list_containers(
-    image_filter: str = DEFAULT_IMAGE,
+    image_filter: str = DEFAULT_IMAGE_FILTER,
     name_prefix: str | None = DEFAULT_NAME_PREFIX,
     include_all: bool = False,
 ) -> list[ContainerInfo]:
@@ -506,7 +507,7 @@ def remove_container(container_name: str, force: bool = True, volumes: bool = Tr
 
 def remove_containers(
     container_names: list[str] | None = None,
-    image_filter: str = DEFAULT_IMAGE,
+    image_filter: str = DEFAULT_IMAGE_FILTER,
     name_prefix: str = DEFAULT_NAME_PREFIX,
     force: bool = True,
     volumes: bool = True,
