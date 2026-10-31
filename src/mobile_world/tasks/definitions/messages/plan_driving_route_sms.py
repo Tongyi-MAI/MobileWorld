@@ -25,7 +25,7 @@ class PlanDrivingRouteSmsTask(BaseTask):
         "相邻地点之间的驾车距离（米），按驾车顺序计算，逗号分隔\n "
         "总直线距离（米）\n "
     )
-    task_tags = {"agent-mcp"}
+    task_tags = {"agent-mcp", "lang-en"}
 
     RECIPIENT_PHONE = "13600136000"
 

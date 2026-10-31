@@ -22,7 +22,7 @@ class ExtractTrajectoryEnvironmentsEmailTask(BaseTask):
         "- Subject: Trajectory data collection environments from 2508.15144\n"
         "- Body: the summary in the specified format\n"
     )
-    task_tags = {"agent-mcp"}
+    task_tags = {"agent-mcp", "lang-en"}
 
     EMAIL_ADDRESS = "collaborator@example.com"
     EMAIL_SUBJECT = "Trajectory data collection environments from 2508.15144"
