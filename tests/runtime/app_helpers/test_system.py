@@ -74,3 +74,33 @@ def test_get_sent_sms_bodies_returns_empty_list_on_unexpected_error(monkeypatch)
     )
 
     assert bodies == []
+
+
+def _fake_sent_sms(monkeypatch, body):
+    adb_output = f"Row: 0 address=+14058298746, date=100, body={body}"
+    monkeypatch.setattr(
+        system,
+        "execute_adb",
+        lambda *args, **kwargs: SimpleNamespace(success=True, output=adb_output, error=""),
+    )
+
+
+def test_check_sms_list_content_accepts_space_after_comma(monkeypatch):
+    controller = SimpleNamespace(device="emulator-5554")
+    for body in ("10/04/2025,10/10/2025", "10/04/2025, 10/10/2025"):
+        _fake_sent_sms(monkeypatch, body)
+        assert system.check_sms_via_adb(
+            controller, "+14058298746", ["10/04/2025", "10/10/2025"]
+        )
+
+
+def test_check_conference_and_send_sms_tasks_use_list_content():
+    from mobile_world.tasks.definitions.calendar.check_conference_and_send_sms_1 import (
+        CheckConferenceAndSendSmsTask1,
+    )
+    from mobile_world.tasks.definitions.calendar.check_conference_and_send_sms_2 import (
+        CheckConferenceAndSendSmsTask2,
+    )
+
+    for task_cls in (CheckConferenceAndSendSmsTask1, CheckConferenceAndSendSmsTask2):
+        assert isinstance(task_cls.expected_message_content, list)
