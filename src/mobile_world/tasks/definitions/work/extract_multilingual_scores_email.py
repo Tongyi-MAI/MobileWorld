@@ -30,7 +30,7 @@ class ExtractMultilingualScoresEmailTask(BaseTask):
         "- Body: exactly three lines, in this order: MGSM, MMMLU, INCLUDE,\n"
         "each line following the specified format, and no extra text.\n"
     )
-    task_tags = {"agent-mcp"}
+    task_tags = {"agent-mcp", "lang-en"}
 
     ARXIV_URL = "https://arxiv.org/pdf/2505.09388"
     EMAIL_ADDRESS = "advisor@example.com"

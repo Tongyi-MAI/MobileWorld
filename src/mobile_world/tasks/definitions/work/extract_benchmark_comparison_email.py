@@ -23,7 +23,7 @@ class ExtractBenchmarkComparisonEmailTask(BaseTask):
         "- Subject: MMBench-GUI L1 comparison (uitars-72B vs Claude-3.7)\n"
         "- Body: exactly that one sentence, and no extra text.\n"
     )
-    task_tags = {"agent-mcp"}
+    task_tags = {"agent-mcp", "lang-en"}
 
     EMAIL_ADDRESS = "coauthor@example.com"
     EMAIL_SUBJECT = "MMBench-GUI L1 comparison (uitars-72B vs Claude-3.7)"

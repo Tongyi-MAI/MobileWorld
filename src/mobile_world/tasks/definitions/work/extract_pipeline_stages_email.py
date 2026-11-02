@@ -21,7 +21,7 @@ class ExtractPipelineStagesEmailTask(BaseTask):
         "- Body: exactly four lines, one for each stage, in the order stage 1 to stage N,\n"
         "  each following the format 'stage N: content' with no extra text.\n"
     )
-    task_tags = {"agent-mcp"}
+    task_tags = {"agent-mcp", "lang-en"}
 
     EMAIL_ADDRESS = "chen@gmail.com"
     EMAIL_SUBJECT = "Data pipeline stages from 2505.09388"
