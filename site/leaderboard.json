@@ -459,7 +459,7 @@
     {
       "model": "UI-Venus-72B",
       "organization": "Ant Group",
-      "date": "2024-08-15",
+      "date": "2025-08-15",
       "link": "https://arxiv.org/abs/2508.10833",
       "category": "Specialized",
       "model_type": "End-to-End Model",
@@ -475,7 +475,7 @@
     {
       "model": "Qwen3-VL-235B-A22B",
       "organization": "Alibaba",
-      "date": "2024-11-27",
+      "date": "2025-09-23",
       "link": "https://arxiv.org/abs/2511.21631",
       "category": "General",
       "model_type": "End-to-End Model",
@@ -491,7 +491,7 @@
     {
       "model": "Qwen3-VL-32B",
       "organization": "Alibaba",
-      "date": "2025-11-27",
+      "date": "2025-10-21",
       "link": "https://arxiv.org/abs/2511.21631",
       "category": "General",
       "model_type": "End-to-End Model",
@@ -539,7 +539,7 @@
     {
       "model": "Qwen3-VL-8B",
       "organization": "Alibaba",
-      "date": "2024-11-27",
+      "date": "2025-10-15",
       "link": "https://arxiv.org/abs/2511.21631",
       "category": "General",
       "model_type": "End-to-End Model",
