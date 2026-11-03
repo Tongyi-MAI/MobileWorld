@@ -78,19 +78,26 @@ class ReadQwen3PaperTask5(BaseTask):
             return False
 
     def is_successful(self, controller: AndroidController) -> tuple[float, str]:
-        """Check if the user provided the correct answer (exact string match)."""
+        """Check if the user provided the correct set of language codes."""
         self._check_is_initialized()
 
         answer = controller.interaction_cache
 
         logger.info(f"User answer: {answer}")
 
-        # Normalize answer by stripping whitespace
         answer_normalized = answer.strip() if isinstance(answer, str) else str(answer)
-        # Normalize spaces around commas (e.g., "vie Latn, khm Khmr" -> "vie Latn,khm Khmr")
-        answer_normalized = ",".join(part.strip() for part in answer_normalized.split(","))
 
-        if answer_normalized == self.CORRECT_ANSWER:
+        # Compare as an unordered, case-insensitive set of language codes, treating
+        # "vie_Latn" (Belebele code) and "vie Latn" (as printed in the paper) the same.
+        if self._normalize_codes(answer_normalized) == self._normalize_codes(self.CORRECT_ANSWER):
             return 1.0, "success"
         else:
             return 0.0, f"incorrect. Expected: {self.CORRECT_ANSWER}, Got: {answer_normalized}"
+
+    @staticmethod
+    def _normalize_codes(text: str) -> set[str]:
+        return {
+            " ".join(part.replace("_", " ").lower().split())
+            for part in text.split(",")
+            if part.strip()
+        }
