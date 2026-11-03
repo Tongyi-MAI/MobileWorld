@@ -10,7 +10,7 @@ class CheckConferenceAndSendSmsTask2(BaseTask):
 
     goal = "Check my calendar and send an SMS notification to Mia with the dates of my arrival and departure from Tokyo. The message should contain only the two dates in MM/DD/YYYY format, separated by a comma."
     correct_phone_number = "+14058298746"  # Mia Scott's phone number: +1-405-829-8746
-    expected_message_content = "10/04/2025,10/10/2025"
+    expected_message_content = ["10/04/2025", "10/10/2025"]  # Allow space after comma
 
     task_tags = {"lang-en"}
 
