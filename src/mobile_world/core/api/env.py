@@ -887,18 +887,16 @@ def check_image_status(image: str = DEFAULT_IMAGE) -> ImageStatus:
 
     try:
         result = subprocess.run(
-            ["docker", "manifest", "inspect", image],
+            ["docker", "manifest", "inspect", "--verbose", image],
             capture_output=True,
             text=True,
         )
         if result.returncode == 0:
             try:
+                # --verbose gives the manifest digest (Descriptor.digest), the same
+                # kind of digest as the local RepoDigest. config.digest is a different hash.
                 manifest = json.loads(result.stdout)
-                if "config" in manifest and "digest" in manifest["config"]:
-                    remote_digest = manifest["config"]["digest"]
-                    if remote_digest.startswith("sha256:"):
-                        status.remote_digest = remote_digest[7:]
-                elif "Descriptor" in manifest and "digest" in manifest["Descriptor"]:
+                if "Descriptor" in manifest and "digest" in manifest["Descriptor"]:
                     remote_digest = manifest["Descriptor"]["digest"]
                     if remote_digest.startswith("sha256:"):
                         status.remote_digest = remote_digest[7:]
