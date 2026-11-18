@@ -282,7 +282,7 @@
 
             function getScore(resultStr) {
                 if (!resultStr) return null;
-                const m = resultStr.match(/score:\s*([\d.]+)/);
+                const m = resultStr.match(/score:\s*([\d.]+)/) || resultStr.match(/^\s*([\d.]+)\s*(?:\n|$)/);
                 return m ? parseFloat(m[1]) : null;
             }
 

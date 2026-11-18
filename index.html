@@ -1305,7 +1305,7 @@
                     if (!task) return;
 
                     if (task.result) {
-                        const scoreMatch = task.result.match(/score:\s*([\d.]+)/);
+                        const scoreMatch = task.result.match(/score:\s*([\d.]+)/) || task.result.match(/^\s*([\d.]+)\s*(?:\n|$)/);
                         const score = scoreMatch ? parseFloat(scoreMatch[1]) : null;
                         trajResultBadge.textContent = score === 1 ? 'Pass' : score === 0 ? 'Fail' : task.result.split('\n')[0];
                         trajResultBadge.className = 'traj-result ' + (score === 1 ? 'traj-result--pass' : 'traj-result--fail');
