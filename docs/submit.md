@@ -44,6 +44,8 @@ Draft a new object in the same format as the existing entries in `site/leaderboa
 
 `category` must be one of `Agentic`, `General`, or `Specialized` — this drives the Type filter on the leaderboard.
 
+For Agentic submissions, list the model used for each component, such as the planner, GUI operator, and verifier. Include the version, API model ID, or checkpoint when available. If one model serves multiple roles, list those roles together.
+
 ## 3. Send us the bundled output
 
 Trajectory videos are hosted on a separate asset repo, so external contributors can't push them directly. Open a [GitHub issue](https://github.com/Tongyi-MAI/MobileWorld/issues) or reach out via the [Contact](../README.md#-contact) section, and attach:
