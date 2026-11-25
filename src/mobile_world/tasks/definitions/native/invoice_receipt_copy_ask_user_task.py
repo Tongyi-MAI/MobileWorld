@@ -95,7 +95,7 @@ class InvoiceReceiptCopyAskUserTask(BaseTask):
         },
     ]
 
-    task_tags = {"lang-cn"}
+    task_tags = {"agent-user-interaction", "lang-cn"}
 
     def __init__(self, params: dict[str, Any] = None):
         super().__init__(params)
