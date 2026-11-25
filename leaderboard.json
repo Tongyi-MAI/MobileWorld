@@ -737,6 +737,23 @@
       "num_images_in_history": 1,
       "notes": "Agentic result using seek-use-harness with deepseek-flash as the configured model alias, and an application knowledge base describing app interfaces and features. Author-reported planner-cycle limits varied from 10 to 75 across the 117 runs; GUI actions were uncapped (max_gui_turns=null). A planner cycle can contain multiple GUI actions, and retries within a cycle do not consume an additional planner cycle.",
       "traj_file": "trajs/seek-use-harness_mobileworld_117.json.gz"
+    },
+    {
+      "model": "ColorGUI (Qwen3.8-27B + ColorGUI-27B)",
+      "organization": "OPPO",
+      "date": "2026-11-13",
+      "link": "",
+      "category": "Agentic",
+      "model_type": "Agentic Framework",
+      "max_steps": 50,
+      "runs": 1,
+      "gui_only": 83.76,
+      "user_int": null,
+      "mcp": null,
+      "agent_type": "planner_executor",
+      "num_images_in_history": 3,
+      "notes": "Planner: Qwen3.8-27B. GUI operator: ColorGUI-27B, an internally trained 27B model. Verifier: Qwen3.8-27B. Recovery: Qwen3.8-27B. The simulated user also used Qwen3.8-27B. One run on the official 117-task GUI-Only split.",
+      "traj_file": "trajs/ColorMobileAgent_V86_GUIOnly_20261113.json.gz"
     }
   ]
 }
