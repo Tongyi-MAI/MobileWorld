@@ -96,7 +96,7 @@ def _execute_single_task(
         if terminate:
             break
 
-        if step >= max_step:
+        if max_step > 0 and step >= max_step:
             logger.debug("task steps reach max step, terminate")
             break
 
