@@ -50,6 +50,7 @@ _ACTION_TYPES = (
     DRAG,
     ASK_USER,
     MCP,
+    ENV_FAIL,
 )
 
 _SCROLL_DIRECTIONS = ("left", "right", "down", "up")
